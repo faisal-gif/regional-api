@@ -9,14 +9,20 @@ import { Network } from "./network.entity";
 export class NetworkService {
     constructor(@InjectRepository(Network) private repo: Repository<Network>) { }
 
-    async findAll() {
+    async findOne(slug: string) {
         return this.repo.findOne({
-            where: { slug: 'jatim' },
+            where: { slug },
             select: {
                 id: true,
                 name: true,
                 slug: true,
                 title: true,
+                tagline: true,
+                description: true,
+                keyword: true,
+                domain: true,
+                logo: true,
+                logo_m: true,
             }
         });
     }

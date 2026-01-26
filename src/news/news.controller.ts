@@ -6,23 +6,78 @@ export class NewsController {
   constructor(private readonly service: NewsService) { }
 
   @Get('/terbaru')
-  findAll(@Query('page') page = 1, @Query('limit') limit = 10, @Query('networkId') networkId = 2) {
-    return this.service.findAll(+page, +limit, +networkId);
+  async findAll(
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('networkId') networkId = 2) {
+
+    const data = await this.service.findAll(+page, +limit, +networkId);
+
+    return {
+      success: true,
+      data,
+    };
   }
 
+
   @Get('/headline')
-  findHeadline(@Query('networkId') networkId = 2) {
-    return this.service.findHeadline(+networkId);
+  async findHeadline(
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('networkId') networkId = 2,
+  ) {
+    const data = await this.service.findHeadline(+page, +limit, +networkId);
+
+    return {
+      success: true,
+      data,
+    };
   }
 
   @Get('/popular')
-  findPopular(@Query('page') page = 1, @Query('limit') limit = 10, @Query('networkId') networkId = 2, @Query('categoryId') categoryId?: number) {
-    return this.service.findPopular(+page, +limit, +networkId, categoryId ? +categoryId : undefined);
+  async findPopular(
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('networkId') networkId = 2,
+    @Query('categoryId') categoryId?: number) {
+
+    const data = await this.service.findPopular(+page, +limit, +networkId, categoryId ? +categoryId : undefined);
+
+    return {
+      success: true,
+      data,
+    };
   }
 
-  @Get('/:id')
-  findOne(@Param('id') id: number) {
-    return this.service.findOne(+id);
+  @Get('/category/:cat_id')
+  async findByCategory(
+    @Param('cat_id') categoryId: number,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('networkId') networkId = 2) {
+
+    const data = await this.service.findByCategory(+page, +limit, +networkId, +categoryId);
+
+    return {
+      success: true,
+      data,
+    };
   }
+
+  @Get('/:code')
+  async findOne(@Param('code') code: string) {
+    const data = await this.service.findOne(code);
+
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('/search')
+  search(@Query('query') query: string, @Query('page') page = 1, @Query('limit') limit = 10, @Query('networkId') networkId = 2) {
+    return this.service.search(query, +page, +limit, +networkId);
+  }
+
 
 }

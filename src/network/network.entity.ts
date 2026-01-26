@@ -7,5 +7,12 @@ export class Network {
     @Column() domain: string;
     @Column() slug: string;
     @Column() title: string;
+    @Column() tagline: string;
+    @Column() description: string;
+    @Column() keyword: string;
+    @Column() logo: string;
+    @Column() logo_m: string;
+
+
 
 }
