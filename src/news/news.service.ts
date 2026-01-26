@@ -13,47 +13,60 @@ export class NewsService {
     async findAll(page: number, limit: number, networkId: number) {
         const offset = (page - 1) * limit;
 
-        // 1. Ambil ID kanal dan fokus terlebih dahulu (Sangat Cepat)
-        const [kanals, fokus] = await Promise.all([
-            this.repo.query(`SELECT id_kanal FROM network_kanal WHERE id_network = ?`, [networkId]),
-            this.repo.query(`SELECT id_fokus FROM network_fokus WHERE id_network = ?`, [networkId])
-        ]);
+        let result = await this.repo.query(`
+                SELECT 
+                    n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
+                    n.views, n.writer_id, nc.name AS category_name, nc.slug as category_slug, w.name AS author
+                FROM (
+                    SELECT 
+                        news.id, news.image, news.title, news.description, 
+                        news.datepub, news.is_code, news.views, news.cat_id, news.writer_id, news.fokus_id
+                    FROM news
+                    INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+                    WHERE news.status = 1
+                    AND (
+                        news.cat_id IN (SELECT id_kanal FROM network_kanal WHERE id_network = ?)
+                        OR 
+                        news.fokus_id IN (SELECT id_fokus FROM network_fokus WHERE id_network = ?)
+                    )
+                    ORDER BY news.datepub DESC
+                    LIMIT ? OFFSET ?
+                ) AS n
+                INNER JOIN news_cat nc ON nc.id = n.cat_id
+          
+                INNER JOIN writers w ON w.id = n.writer_id
+            `, [networkId, networkId, networkId, limit, offset]);
 
-        const kanalIds = kanals.map(k => k.id_kanal);
-        const fokusIds = fokus.map(f => f.id_fokus);
-
-        // 2. Gunakan query yang lebih flat (tanpa subquery di FROM jika memungkinkan)
-        // Gunakan parameter binding untuk array jika library mendukung, 
-        // atau susun string IN secara manual yang aman.
-
-        let query = `
-        SELECT 
-            news.id, news.is_code, news.image, news.title, news.description, 
-            news.datepub, news.views, news.writer_id, news.cat_id,
-            nc.name AS category_name, nc.slug as category_slug, w.name AS author
-        FROM news
-        INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-        INNER JOIN news_cat nc ON nc.id = news.cat_id
-        INNER JOIN writers w ON w.id = news.writer_id
-        WHERE news.status = 1
-    `;
-
-        const params = [networkId];
-
-        // Tambahkan filter jika ada data kanal/fokus
-        if (kanalIds.length > 0 || fokusIds.length > 0) {
-            query += ` AND (news.cat_id IN (?) OR news.fokus_id IN (?)) `;
-            params.push(kanalIds.length ? kanalIds : [0], fokusIds.length ? fokusIds : [0]);
+        // 2. Logic Fallback: Jika hasil kosong, tampilkan semua berita dari network tersebut
+        if (result.length === 0) {
+            result = await this.repo.query(`
+            SELECT 
+                n.id, n.is_code, n.image, n.title, n.description, n.datepub, n.is_code, 
+                n.views, n.writer_id, nc.slug as category_slug, nc.name AS category_name, w.name AS author
+            FROM (
+                SELECT 
+                    news.id, news.image, news.title, news.description, 
+                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                FROM news
+                INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+                WHERE news.status = 1
+                ORDER BY news.datepub DESC
+                LIMIT ? OFFSET ?
+            ) AS n
+            INNER JOIN news_cat nc ON nc.id = n.cat_id
+            INNER JOIN writers w ON w.id = n.writer_id
+        `, [networkId, limit, offset]);
         }
 
-        query += ` ORDER BY news.datepub DESC LIMIT ? OFFSET ?`;
-        params.push(limit, offset);
+        // 3. Inject networkSlug dan Transform ke DTO
+        const enrichedData = result.map((item) => ({
+            ...item
+        }));
 
-        let result = await this.repo.query(query, params);
+        return plainToInstance(NewsDto, enrichedData, {
+            excludeExtraneousValues: true,
+        });
 
-        // ... (logic fallback tetap bisa ada, tapi pastikan query utama sudah cepat)
-
-        return plainToInstance(NewsDto, result, { excludeExtraneousValues: true });
     }
 
     async findHeadline(page: number, limit: number, networkId: number) {
@@ -246,7 +259,7 @@ export class NewsService {
                 id: true,
                 is_code: true,
                 title: true,
-                tag: true,
+                tag:true,
                 description: true,
                 caption: true,
                 content: true,
