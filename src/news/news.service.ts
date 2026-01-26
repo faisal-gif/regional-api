@@ -13,29 +13,30 @@ export class NewsService {
     async findAll(page: number, limit: number, networkId: number) {
         const offset = (page - 1) * limit;
 
-        let result = await this.repo.query(`
-                SELECT 
-                    n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
-                    n.views, n.writer_id, nc.name AS category_name, nc.slug as category_slug, w.name AS author
-                FROM (
-                    SELECT 
-                        news.id, news.image, news.title, news.description, 
-                        news.datepub, news.is_code, news.views, news.cat_id, news.writer_id, news.fokus_id
-                    FROM news
-                    INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-                    WHERE news.status = 1
-                    AND (
-                        news.cat_id IN (SELECT id_kanal FROM network_kanal WHERE id_network = ?)
-                        OR 
-                        news.fokus_id IN (SELECT id_fokus FROM network_fokus WHERE id_network = ?)
-                    )
-                    ORDER BY news.datepub DESC
-                    LIMIT ? OFFSET ?
-                ) AS n
-                INNER JOIN news_cat nc ON nc.id = n.cat_id
-          
-                INNER JOIN writers w ON w.id = n.writer_id
-            `, [networkId, networkId, networkId, limit, offset]);
+        const queryBase = `
+        SELECT 
+            n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
+            n.views, n.writer_id, nc.name AS category_name, nc.slug as category_slug, w.name AS author
+        FROM (
+            SELECT news.id, news.image, news.title, news.description, 
+                   news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+            FROM news
+            INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+            -- Mengganti IN dengan EXISTS untuk performa lebih baik
+            WHERE news.status = 1
+            AND (
+                EXISTS (SELECT 1 FROM network_kanal nk WHERE nk.id_kanal = news.cat_id AND nk.id_network = ?)
+                OR 
+                EXISTS (SELECT 1 FROM network_fokus nf WHERE nf.id_fokus = news.fokus_id AND nf.id_network = ?)
+            )
+            ORDER BY news.datepub DESC
+            LIMIT ? OFFSET ?
+        ) AS n
+        INNER JOIN news_cat nc ON nc.id = n.cat_id
+        INNER JOIN writers w ON w.id = n.writer_id
+    `;
+
+        let result = await this.repo.query(queryBase, [networkId, networkId, networkId, limit, offset]);
 
         // 2. Logic Fallback: Jika hasil kosong, tampilkan semua berita dari network tersebut
         if (result.length === 0) {
@@ -259,7 +260,7 @@ export class NewsService {
                 id: true,
                 is_code: true,
                 title: true,
-                tag:true,
+                tag: true,
                 description: true,
                 caption: true,
                 content: true,
