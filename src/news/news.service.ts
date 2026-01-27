@@ -193,33 +193,23 @@ export class NewsService {
         categoryId: number
     ) {
         const offset = (page - 1) * limit;
+        let result = [];
+        let total = 0;
 
-        // 1. Query Utama: Cari berita berdasarkan Network DAN Kategori
-        let result = await this.repo.query(`
-        SELECT 
-            n.id, n.is_code,n.image, n.title, n.description, n.datepub, 
-            n.views, n.writer_id, nc.name AS category_name, 
-            nc.slug AS category_slug, w.name AS author
-        FROM (
-            SELECT 
-                news.id, news.image, news.title, news.description, 
-                news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
-            FROM news
-            INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-            WHERE news.status = 1 
-            AND news.cat_id = ?
-            ORDER BY news.datepub DESC
-            LIMIT ? OFFSET ?
-        ) AS n
-        INNER JOIN news_cat nc ON nc.id = n.cat_id
-        INNER JOIN writers w ON w.id = n.writer_id
-    `, [networkId, categoryId, limit, offset]);
+        // --- SKENARIO 1: Cari berdasarkan Network DAN Kategori ---
+        const countResult = await this.repo.query(`
+        SELECT COUNT(news.id) as total 
+        FROM news 
+        INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+        WHERE news.status = 1 AND news.cat_id = ?
+    `, [networkId, categoryId]);
 
-        // 2. Logic Fallback: Jika result kosong, ambil semua berita dalam kategori tersebut (Global/Tanpa Network)
-        if (result.length === 0) {
+        total = parseInt(countResult[0].total);
+
+        if (total > 0) {
             result = await this.repo.query(`
             SELECT 
-                n.id, n.image, n.title, n.description, n.datepub, 
+                n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
                 n.views, n.writer_id, nc.name AS category_name, 
                 nc.slug AS category_slug, w.name AS author
             FROM (
@@ -227,20 +217,61 @@ export class NewsService {
                     news.id, news.image, news.title, news.description, 
                     news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                 FROM news
-                WHERE news.status = 1 
-                AND news.cat_id = ?
+                INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+                WHERE news.status = 1 AND news.cat_id = ?
                 ORDER BY news.datepub DESC
                 LIMIT ? OFFSET ?
             ) AS n
             INNER JOIN news_cat nc ON nc.id = n.cat_id
             INNER JOIN writers w ON w.id = n.writer_id
-        `, [categoryId, limit, offset]);
+        `, [networkId, categoryId, limit, offset]);
         }
 
-        // 3. Transform ke DTO
-        return plainToInstance(NewsDto, result, {
+        // --- SKENARIO 2: Fallback (Jika skenario 1 kosong) ---
+        if (total === 0) {
+            const fallbackCount = await this.repo.query(`
+            SELECT COUNT(news.id) as total 
+            FROM news 
+            WHERE news.status = 1 AND news.cat_id = ?
+        `, [categoryId]);
+
+            total = parseInt(fallbackCount[0].total);
+
+            if (total > 0) {
+                result = await this.repo.query(`
+                SELECT 
+                    n.id, n.image, n.title, n.description, n.datepub, 
+                    n.views, n.writer_id, nc.name AS category_name, 
+                    nc.slug AS category_slug, w.name AS author
+                FROM (
+                    SELECT 
+                        news.id, news.image, news.title, news.description, 
+                        news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                    FROM news
+                    WHERE news.status = 1 AND news.cat_id = ?
+                    ORDER BY news.datepub DESC
+                    LIMIT ? OFFSET ?
+                ) AS n
+                INNER JOIN news_cat nc ON nc.id = n.cat_id
+                INNER JOIN writers w ON w.id = n.writer_id
+            `, [categoryId, limit, offset]);
+            }
+        }
+
+        // --- TRANSFORM & WRAP RESPONSE ---
+        const data = plainToInstance(NewsDto, result, {
             excludeExtraneousValues: true,
         });
+
+        return {
+            data,
+            meta: {
+                total,
+                page,
+                limit,
+                lastPage: Math.ceil(total / limit)
+            }
+        };
     }
 
     async findOne(code: string) {
