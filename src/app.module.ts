@@ -33,11 +33,17 @@ import { NetworkService } from './network/network.services';
       entities: [News, NewsNetwork, Category, Focus, Network, Writers], // Pastikan entitas yang digunakan sesuai
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
+      extra: {
+        connectionLimit: 10,       // Jumlah maksimal koneksi yang dibuka serentak
+        waitForConnections: true,  // Jika pool penuh, request akan antre (bukan error)
+        queueLimit: 0,             // Tidak ada batas antrean
+        idleTimeout: 60000,        // Tutup koneksi jika idle selama 60 detik
+      },
     }),
   ],
 
-  controllers: [NewsController, CategoryController, FocusController,NetworkController],
-  providers: [NewsService, CategoryService, FocusService,NetworkService, {
+  controllers: [NewsController, CategoryController, FocusController, NetworkController],
+  providers: [NewsService, CategoryService, FocusService, NetworkService, {
     provide: 'APP_GUARD',
     useClass: ApiKeyGuard,
   }],
