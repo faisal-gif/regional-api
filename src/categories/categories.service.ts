@@ -88,7 +88,7 @@ export class CategoryService {
                     INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                     WHERE news.status = 1 AND news.cat_id = ?
                     ORDER BY news.datepub DESC
-                    LIMIT 5
+                    LIMIT 10
                 ) AS n
                 INNER JOIN news_cat nc ON nc.id = n.cat_id
                 INNER JOIN writers w ON w.id = n.writer_id
