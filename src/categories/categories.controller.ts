@@ -8,8 +8,9 @@ export class CategoryController {
     constructor(private readonly service: CategoryService) { }
 
     @Get('/')
-    async findAll(@Query('networkSlug') networkSlug = 'malang') {
-        const data = await this.service.findAll(networkSlug);
+    async findAll(@Query('networkSlug') networkSlug = 'malang',
+        @Query('limit') limit = 3) {
+        const data = await this.service.findAll(networkSlug, limit);
         return {
             success: true,
             data,

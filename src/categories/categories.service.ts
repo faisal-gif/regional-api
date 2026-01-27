@@ -10,7 +10,7 @@ import { CategoryDto } from "./categories.dto";
 export class CategoryService {
     constructor(@InjectRepository(Category) private repo: Repository<Category>) { }
 
-    async findAll(networkSlug: string) {
+    async findAll(networkSlug: string,limit: number) {
 
         const filteredData = await this.repo.query(`
                 SELECT nc.id, nc.slug, nc.name, nc.description, nc.status
@@ -19,7 +19,8 @@ export class CategoryService {
                 INNER JOIN network n ON n.id = nk.id_network
                 WHERE n.slug = ? AND nc.status = '1'
                 ORDER BY nc.name ASC
-            `, [networkSlug]);
+                LIMIT ?
+            `, [networkSlug, limit]);
 
         let finalData = filteredData;
 
