@@ -10,40 +10,47 @@ import { CategoryDto } from "./categories.dto";
 export class CategoryService {
     constructor(@InjectRepository(Category) private repo: Repository<Category>) { }
 
-    async findAll(networkSlug: string,limit: number) {
+    async findAll(networkSlug: string, limit: number) {
+    // 1. QUERY UTAMA: Filter berdasarkan network yang dipilih
+    // Konsistensi kolom sangat penting agar DTO tidak bingung
+    const queryMain = `
+        SELECT nc.id, nc.slug, nc.name, nc.description, nc.status
+        FROM news_cat nc
+        INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
+        INNER JOIN network n ON n.id = nk.id_network
+        WHERE n.slug = ? AND nc.status = '1'
+        ORDER BY nc.name ASC
+        LIMIT ?
+    `;
 
-        const filteredData = await this.repo.query(`
-                SELECT nc.id, nc.slug, nc.name, nc.description, nc.status
-                FROM news_cat nc
-                INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
-                INNER JOIN network n ON n.id = nk.id_network
-                WHERE n.slug = ? AND nc.status = '1'
-                ORDER BY nc.name ASC
-                LIMIT ?
-            `, [networkSlug, limit]);
+    let result = await this.repo.query(queryMain, [networkSlug, +limit]);
 
-        let finalData = filteredData;
-
-        // 2. Fallback Logic: Jika network belum memilih kanal sama sekali
-        if (finalData.length === 0) {
-            finalData = await this.repo.query(`
-            SELECT id, slug, name, description, keyword, status
+    // 2. FALLBACK LOGIC: Jika network belum punya relasi kanal
+    if (result.length === 0) {
+        const queryFallback = `
+            SELECT id, slug, name, description, status
             FROM news_cat
             WHERE status = '1'
             ORDER BY name ASC
-        `);
-        }
-
-        // 3. Inject networkSlug dan Transform ke DTO
-        const enrichedData = finalData.map((item) => ({
-            ...item,
-            networkSlug,
-        }));
-
-        return plainToInstance(CategoryDto, enrichedData, {
-            excludeExtraneousValues: true,
-        });
+            LIMIT ?
+        `;
+        
+        // Menambahkan LIMIT pada fallback agar tidak menarik seluruh isi database
+        result = await this.repo.query(queryFallback, [limit]);
     }
+
+    // 3. Transform data
+    // Kita langsung map ke instance DTO. 
+    // Penambahan networkSlug tetap dilakukan untuk kebutuhan DTO jika diperlukan.
+    const enrichedData = result.map((item) => ({
+        ...item,
+        networkSlug,
+    }));
+
+    return plainToInstance(CategoryDto, enrichedData, {
+        excludeExtraneousValues: true,
+    });
+}
 
     async findAllCategoryWithNews(networkSlug: string) {
         // 1. Ambil networkId berdasarkan slug
@@ -105,7 +112,7 @@ export class CategoryService {
             select: {
                 id: true,
                 slug: true,
-                keyword:true,
+                keyword: true,
                 name: true,
                 description: true,
             }
