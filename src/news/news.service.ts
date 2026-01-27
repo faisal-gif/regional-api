@@ -68,36 +68,45 @@ export class NewsService {
     async findHeadline(page: number, limit: number, networkId: number) {
         const offset = (page - 1) * limit;
 
-        // 1. Query Utama: Headline dari kanal ATAU fokus pilihan
+        // Gunakan parameter yang sama untuk mempermudah maintenance
+        const queryParams = [networkId, networkId, limit, offset];
+
+        // 1. Query Utama: Headline dengan filter kanal
         let result = await this.repo.query(`
         SELECT 
-            n.id, n.title, n.description, n.datepub, n.is_code, n.image, 
-            n.views,  nc.slug as category_slug, nc.name AS category_name,
+            n.*, 
+            nc.slug as category_slug, nc.name AS category_name,
             w.name AS author
         FROM (
             SELECT 
                 news.id, news.image, news.title, news.description, 
-                news.datepub, news.is_code, news.views, news.cat_id, news.writer_id, news.fokus_id
+                news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
             FROM news
             INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
             WHERE news.status = 1 
             AND news.is_headline = 1
-            AND (
-                news.cat_id IN (SELECT id_kanal FROM network_kanal WHERE id_network = ?)
-               
+            AND EXISTS (
+                SELECT 1 FROM network_kanal nk 
+                WHERE nk.id_kanal = news.cat_id AND nk.id_network = ?
             )
             ORDER BY news.datepub DESC
             LIMIT ? OFFSET ?
         ) AS n
         INNER JOIN news_cat nc ON nc.id = n.cat_id
         INNER JOIN writers w ON w.id = n.writer_id
-    `, [networkId, networkId, limit, offset]);
-        // 2. Logic Fallback: Jika headline di kanal terpilih kosong
+    `, queryParams);
+
+        // 2. Logic Fallback: Jika headline di kanal kosong
         if (result.length === 0) {
             result = await this.repo.query(`
-            SELECT n.id, n.title, n.description, n.datepub, n.is_code, n.image, n.views, nc.slug as category_slug, nc.name AS category_name, w.name AS author
+            SELECT 
+                n.*, 
+                nc.slug as category_slug, nc.name AS category_name, 
+                w.name AS author
             FROM (
-                SELECT news.id, news.image, news.title, news.description, news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                SELECT 
+                    news.id, news.image, news.title, news.description, 
+                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1
@@ -110,13 +119,7 @@ export class NewsService {
         `, [networkId, limit, offset]);
         }
 
-
-        // 3. Inject networkSlug dan Transform ke DTO
-        const enrichedData = result.map((item) => ({
-            ...item
-        }));
-
-        return plainToInstance(NewsDto, enrichedData, {
+        return plainToInstance(NewsDto, result, {
             excludeExtraneousValues: true,
         });
     }
