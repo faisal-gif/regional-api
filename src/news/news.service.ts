@@ -126,15 +126,15 @@ export class NewsService {
 
         // --- 1. QUERY UTAMA: Filter berdasarkan Kanal yang dipilih ---
         const queryWithFilter = `
-        SELECT n.id, news.is_code, n.title, n.description, n.datepub, n.image, n.views, nc.name AS category_name, w.name AS author_name
+        SELECT n.id, n.is_code, n.title, n.description, n.datepub, n.image, n.views, nc.name AS category_name, nc.slug as category_slug, w.name AS author_name
         FROM (
-            SELECT news.id, news.is_code ,news.image, news.title, news.description, news.datepub, news.views, news.cat_id, news.writer_id
+            SELECT news.id, news.is_code, news.image, news.title, news.description, news.datepub, news.views, news.cat_id, news.writer_id
             FROM news
             INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
             INNER JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
             WHERE news.status = 1
             ${categoryId ? 'AND news.cat_id = ?' : ''}
-            AND news.datepub >= CURDATE()
+            AND news.datepub >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
             ORDER BY news.views DESC     
             LIMIT ? OFFSET ?
         ) AS n
@@ -151,9 +151,9 @@ export class NewsService {
         // --- 2. FALLBACK: Jika kosong (tidak pilih kanal atau tidak ada berita populer hari ini di kanal tsb) ---
         if (result.length === 0) {
             const queryFallback = `
-            SELECT n.id, n.title, n.description, n.datepub, n.image, n.views, nc.name AS category_name, w.name AS author_name
+            SELECT n.id, n.is_code, n.title, n.description, n.datepub, n.image, n.views, nc.name AS category_name, nc.slug AS category_slug, w.name AS author_name
             FROM (
-                SELECT news.id, news.image, news.title, news.description, news.datepub, news.views, news.cat_id, news.writer_id
+                SELECT news.id, news.is_code, news.image, news.title, news.description, news.datepub, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1
