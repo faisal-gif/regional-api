@@ -23,7 +23,7 @@ export class CategoryService {
         LIMIT ?
     `;
 
-    let result = await this.repo.query(queryMain, [networkSlug, +limit]);
+    let result = await this.repo.query(queryMain, [networkSlug, limit]);
 
     // 2. FALLBACK LOGIC: Jika network belum punya relasi kanal
     if (result.length === 0) {
