@@ -19,7 +19,7 @@ export class CategoryService {
         INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
         INNER JOIN network n ON n.id = nk.id_network
         WHERE n.slug = ? AND nc.status = '1'
-        ORDER BY nc.name ASC
+        ORDER BY nc.id ASC
         LIMIT ?
     `;
 
@@ -31,7 +31,7 @@ export class CategoryService {
             SELECT id, slug, name, description, status
             FROM news_cat
             WHERE status = '1'
-            ORDER BY name ASC
+            ORDER BY id ASC
             LIMIT ?
         `;
         
