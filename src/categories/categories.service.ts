@@ -11,37 +11,31 @@ export class CategoryService {
     constructor(@InjectRepository(Category) private repo: Repository<Category>) { }
 
     async findAll(networkSlug: string, limit: number) {
-    // 1. QUERY UTAMA: Filter berdasarkan network yang dipilih
-    // Konsistensi kolom sangat penting agar DTO tidak bingung
+    // Tambahkan nc.parent_id di sini
     const queryMain = `
-        SELECT nc.id, nc.slug, nc.name, nc.description, nc.status
+        SELECT nc.id, nc.slug, nc.name, nc.description, nc.status, nc.parent_id
         FROM news_cat nc
         INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
         INNER JOIN network n ON n.id = nk.id_network
         WHERE n.slug = ? AND nc.status = '1'
-        ORDER BY nc.id ASC
+        ORDER BY nc.parent_kanal ASC, nc.id ASC 
         LIMIT ?
     `;
 
     let result = await this.repo.query(queryMain, [networkSlug, limit]);
 
-    // 2. FALLBACK LOGIC: Jika network belum punya relasi kanal
     if (result.length === 0) {
         const queryFallback = `
-            SELECT id, slug, name, description, status
+            SELECT id, slug, name, description, status, parent_id
             FROM news_cat
             WHERE status = '1'
-            ORDER BY id ASC
+            ORDER BY parent_kanal ASC, id ASC
             LIMIT ?
         `;
-        
-        // Menambahkan LIMIT pada fallback agar tidak menarik seluruh isi database
         result = await this.repo.query(queryFallback, [limit]);
     }
 
-    // 3. Transform data
-    // Kita langsung map ke instance DTO. 
-    // Penambahan networkSlug tetap dilakukan untuk kebutuhan DTO jika diperlukan.
+    // Penambahan networkSlug ke tiap item
     const enrichedData = result.map((item) => ({
         ...item,
         networkSlug,
