@@ -11,9 +11,9 @@ export class CategoryService {
     constructor(@InjectRepository(Category) private repo: Repository<Category>) { }
 
     async findAll(networkSlug: string, limit: number) {
-    // Tambahkan nc.parent_id di sini
-    const queryMain = `
-        SELECT nc.id, nc.slug, nc.name, nc.description, nc.status, nc.parent_id
+        // Tambahkan nc.parent_id di sini
+        const queryMain = `
+        SELECT nc.id, nc.slug, nc.name, nc.description, nc.status, nc.parent_kanal 
         FROM news_cat nc
         INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
         INNER JOIN network n ON n.id = nk.id_network
@@ -22,29 +22,37 @@ export class CategoryService {
         LIMIT ?
     `;
 
-    let result = await this.repo.query(queryMain, [networkSlug, limit]);
+        let result = await this.repo.query(queryMain, [networkSlug, limit]);
 
-    if (result.length === 0) {
-        const queryFallback = `
-            SELECT id, slug, name, description, status, parent_id
+        if (result.length === 0) {
+            const queryFallback = `
+            SELECT id, slug, name, description, status, parent_kanal 
             FROM news_cat
             WHERE status = '1'
             ORDER BY parent_kanal ASC, id ASC
             LIMIT ?
         `;
-        result = await this.repo.query(queryFallback, [limit]);
+            result = await this.repo.query(queryFallback, [limit]);
+        }
+
+        // Penambahan networkSlug ke tiap item
+        const enrichedData = result.map((item) => ({
+            ...item,
+            networkSlug,
+        }));
+
+        const buildTree = (items, parentId = null) => {
+            return items
+                .filter(item => item.parent_kanal === parentId)
+                .map(item => ({
+                    ...item,
+                    children: buildTree(items, item.id)
+                }));
+        };
+
+        const treeData = buildTree(enrichedData);
+        return plainToInstance(CategoryDto, treeData, { excludeExtraneousValues: true });
     }
-
-    // Penambahan networkSlug ke tiap item
-    const enrichedData = result.map((item) => ({
-        ...item,
-        networkSlug,
-    }));
-
-    return plainToInstance(CategoryDto, enrichedData, {
-        excludeExtraneousValues: true,
-    });
-}
 
     async findAllCategoryWithNews(networkSlug: string) {
         // 1. Ambil networkId berdasarkan slug

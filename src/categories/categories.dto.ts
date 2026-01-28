@@ -17,6 +17,9 @@ export class CategoryDto {
     @Expose()
     keyword: string;
 
+    @Expose()
+    parent_kanal: number | null;
+
     // Tambahkan untuk transform URL
     @Expose()
     @Transform(({ obj }) =>
@@ -24,6 +27,10 @@ export class CategoryDto {
         { toClassOnly: true }
     )
     url: string;
+
+    @Expose()
+    @Type(() => CategoryDto)
+    children?: CategoryDto[];
 
     @Expose()
     @Type(() => NewsDto) // Mengonversi array di dalamnya menjadi NewsDto

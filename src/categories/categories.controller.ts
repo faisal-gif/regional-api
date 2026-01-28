@@ -9,7 +9,7 @@ export class CategoryController {
 
     @Get('/')
     async findAll(@Query('networkSlug') networkSlug = 'malang',
-        @Query('limit') limit = 3) {
+        @Query('limit') limit = 50) {
         const data = await this.service.findAll(networkSlug, +limit);
         return {
             success: true,
