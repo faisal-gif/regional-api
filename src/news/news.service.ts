@@ -275,10 +275,6 @@ export class NewsService {
     }
 
     async findOne(code: string) {
-        // Tambah views random antara 1-5 setiap kali diakses
-        const randomViews = Math.floor(Math.random() * 800) + 1;
-        await this.repo.increment({ is_code: code }, "views", randomViews);
-
         const result = await this.repo.findOne({
             where: { is_code: code, status: '1' },
             relations: {
