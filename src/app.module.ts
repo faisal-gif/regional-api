@@ -16,12 +16,18 @@ import { ApiKeyGuard } from './auth/api-key.guard';
 import { Writers } from './writers/writers.entity';
 import { NetworkController } from './network/network.controller';
 import { NetworkService } from './network/network.services';
+import { CacheModule } from '@nestjs/cache-manager';
 
 
 @Module({
 
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 120000,   
+      max: 100,   
+    }),
     TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers]),
     TypeOrmModule.forRoot({
       type: 'mysql', // Ganti dari 'postgres' ke 'mysql'

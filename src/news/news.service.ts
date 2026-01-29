@@ -66,9 +66,13 @@ export class NewsService {
             ...item
         }));
 
-        return plainToInstance(NewsDto, enrichedData, {
+        const finalData = plainToInstance(NewsDto, enrichedData, {
             excludeExtraneousValues: true,
         });
+
+        await this.cacheManager.set(cacheKey, finalData, 120000);
+
+        return finalData;
 
     }
 
@@ -131,9 +135,13 @@ export class NewsService {
         `, [networkId, limit, offset]);
         }
 
-        return plainToInstance(NewsDto, result, {
+        const finalData = plainToInstance(NewsDto, result, {
             excludeExtraneousValues: true,
         });
+
+        await this.cacheManager.set(cacheKey, finalData, 120000);
+
+        return finalData;
     }
 
     async findPopular(page: number, limit: number, networkId: number, categoryId?: number) {
@@ -198,9 +206,13 @@ export class NewsService {
             ...item
         }));
 
-        return plainToInstance(NewsDto, enrichedData, {
+        const finalData = plainToInstance(NewsDto, enrichedData, {
             excludeExtraneousValues: true,
         });
+
+        await this.cacheManager.set(cacheKey, finalData, 120000);
+
+        return finalData;
     }
 
     async findByCategory(
@@ -285,7 +297,7 @@ export class NewsService {
             excludeExtraneousValues: true,
         });
 
-        return {
+        const finalResponse = {
             data,
             meta: {
                 total,
@@ -294,47 +306,65 @@ export class NewsService {
                 lastPage: Math.ceil(total / limit)
             }
         };
+
+        // 3. SIMPAN KE CACHE (120000 ms = 2 menit)
+        await this.cacheManager.set(cacheKey, finalResponse, 120000);
+
+        return finalResponse;
     }
 
     async findOne(code: string) {
-        const result = await this.repo.findOne({
-            where: { is_code: code, status: '1' },
-            relations: {
-                category: true, // relasi ke kategori
-                writer: true    // relasi ke writers
-            },
-            select: {
-                id: true,
-                is_code: true,
-                title: true,
-                tag: true,
-                description: true,
-                caption: true,
-                content: true,
-                image: true,
-                views: true,
-                datepub: true,
-                locus: true,
-                writer: {
-                    name: true
-                },
-                category: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                }
-            }
-        });
+    const cacheKey = `news_detail_${code}`;
+    
+    // 1. Jalankan Increment Views di background (tanpa await agar cepat)
+    // Kita tetap update DB setiap kali fungsi ini dipanggil
+    const randomViews = Math.floor(Math.random() * 800) + 1;
+    this.repo.increment({ is_code: code }, "views", randomViews)
+        .catch(err => console.error("Gagal update views:", err));
 
-        if (!result) return null;
-
-        // Transform menggunakan NewsDto
-        return plainToInstance(NewsDetailDto, result, {
-            excludeExtraneousValues: true, // Memastikan hanya yang ada @Expose yang muncul
-        });
-
-
+    // 2. Cek apakah data artikel ada di Cache
+    const cachedData = await this.cacheManager.get<NewsDetailDto>(cacheKey);
+    if (cachedData) {
+        // Jika ada di cache, langsung kembalikan. 
+        // Catatan: Angka 'views' di sini adalah angka saat cache dibuat.
+        return cachedData;
     }
+
+    // 3. Jika Cache kosong, ambil dari Database
+    const result = await this.repo.findOne({
+        where: { is_code: code, status: '1' },
+        relations: {
+            category: true,
+            writer: true
+        },
+        select: {
+            id: true,
+            is_code: true,
+            title: true,
+            tag: true,
+            description: true,
+            caption: true,
+            content: true,
+            image: true,
+            views: true,
+            datepub: true,
+            locus: true,
+            writer: { name: true },
+            category: { id: true, name: true, slug: true }
+        }
+    });
+
+    if (!result) return null;
+
+    const data = plainToInstance(NewsDetailDto, result, {
+        excludeExtraneousValues: true,
+    });
+
+    // 4. Simpan ke Cache (Misal: 30 menit = 1800000 ms)
+    await this.cacheManager.set(cacheKey, data, 120000);
+
+    return data;
+}
 
     async search(query, page, limit, networkId) {
         const offset = (page - 1) * limit;
