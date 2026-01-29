@@ -1,16 +1,23 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { News } from "./news.entity"
 import { Repository } from "typeorm";
 import { NewsDto } from "./news.dto";
 import { plainToInstance } from "class-transformer";
 import { NewsDetailDto } from "./newsDetail.dto";
+import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 
 @Injectable()
 export class NewsService {
-    constructor(@InjectRepository(News) private repo: Repository<News>) { }
+    constructor(@InjectRepository(News) private repo: Repository<News>,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache) { }
 
     async findAll(page: number, limit: number, networkId: number) {
+
+        const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
+        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+        if (cachedData) return cachedData;
+
         const offset = (page - 1) * limit;
 
         let result = await this.repo.query(`
@@ -66,6 +73,11 @@ export class NewsService {
     }
 
     async findHeadline(page: number, limit: number, networkId: number) {
+
+        const cacheKey = `news_headline_net${networkId}_p${page}_l${limit}`;
+        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+        if (cachedData) return cachedData;
+
         const offset = (page - 1) * limit;
 
         // Gunakan parameter yang sama untuk mempermudah maintenance
@@ -125,6 +137,11 @@ export class NewsService {
     }
 
     async findPopular(page: number, limit: number, networkId: number, categoryId?: number) {
+
+        const cacheKey = `news_popular_net${networkId}_p${page}_l${limit}_cat${categoryId}`;
+        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+        if (cachedData) return cachedData;
+
         const offset = (page - 1) * limit;
 
         // --- 1. QUERY UTAMA: Filter berdasarkan Kanal yang dipilih ---
@@ -192,6 +209,11 @@ export class NewsService {
         networkId: number,
         categoryId: number
     ) {
+
+        const cacheKey = `news_by_cat_net${networkId}_p${page}_l${limit}_cat${categoryId}`;
+        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+        if (cachedData) return cachedData;
+
         const offset = (page - 1) * limit;
         let result = [];
         let total = 0;
