@@ -239,7 +239,29 @@ export class NewsService {
     `, [networkId, categoryId]);
 
         total = parseInt(countResult[0].total);
-        
+
+        if (total > 0) {
+            result = await this.repo.query(`
+            SELECT 
+                n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
+                n.views, n.writer_id, nc.name AS category_name, 
+                nc.slug AS category_slug, w.name AS author
+            FROM (
+                SELECT 
+                    news.id, news.image, news.title, news.description, 
+                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                FROM news
+                INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+                WHERE news.status = 1 AND news.cat_id = ?
+                ORDER BY news.datepub DESC
+                LIMIT ? OFFSET ?
+            ) AS n
+            INNER JOIN news_cat nc ON nc.id = n.cat_id
+            INNER JOIN writers w ON w.id = n.writer_id
+        `, [networkId, categoryId, limit, offset]);
+        }
+
+      
 
         // --- TRANSFORM & WRAP RESPONSE ---
         const data = plainToInstance(NewsDto, result, {
