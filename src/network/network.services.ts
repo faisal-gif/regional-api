@@ -21,6 +21,12 @@ export class NetworkService {
                 description: true,
                 keyword: true,
                 domain: true,
+                analytics: true,
+                fb: true,
+                tw: true,
+                yt: true,
+                gp: true,
+                gverify: true,
                 logo: true,
                 logo_m: true,
             }

@@ -10,6 +10,12 @@ export class Network {
     @Column() tagline: string;
     @Column() description: string;
     @Column() keyword: string;
+    @Column() analytics: string;
+    @Column() gverify: string;
+    @Column() fb: string;
+    @Column() tw: string;
+    @Column() yt: string;
+    @Column() gp: string;
     @Column() logo: string;
     @Column() logo_m: string;
 
