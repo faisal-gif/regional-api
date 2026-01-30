@@ -6,9 +6,8 @@ export class FocusController {
     constructor(private readonly service: FocusService) { }
 
     @Get('/')
-    async findAll(@Query('networkSlug') networkSlug = 'malang',
-        @Query('limit') limit = 50) {
-        const data = await this.service.findAll(networkSlug, +limit);
+    async findAll(@Query('networkSlug') networkSlug = 'malang') {
+        const data = await this.service.findAll(networkSlug);
         return {
             success: true,
             data,

@@ -10,8 +10,8 @@ import { plainToInstance } from "class-transformer";
 export class FocusService {
     constructor(@InjectRepository(Focus) private repo: Repository<Focus>) { }
 
-    async findAll(networkSlug: string, limit: number) {
-        // Tambahkan nc.parent_id di sini
+    async findAll(networkSlug: string) {
+     
         const queryMain = `
           SELECT nf.id, nf.name, nf.description, nf.status ,COUNT(na.id) as total_articles
           FROM news_fokus nf
@@ -20,10 +20,9 @@ export class FocusService {
           INNER JOIN network n ON n.id = nfk.id_network
           WHERE n.slug = ? AND nf.status = '1'
           ORDER BY nf.id ASC
-          LIMIT ?
       `;
 
-        let result = await this.repo.query(queryMain, [networkSlug, limit]);
+        let result = await this.repo.query(queryMain, [networkSlug]);
 
         if (result.length === 0) {
             const queryFallback = `
@@ -31,9 +30,8 @@ export class FocusService {
               FROM news_fokus
               WHERE status = '1'
               ORDER BY id ASC
-              LIMIT ?
-          `;
-            result = await this.repo.query(queryFallback, [limit]);
+            `;
+            result = await this.repo.query(queryFallback);
         }
 
 
