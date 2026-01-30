@@ -13,7 +13,7 @@ export class FocusService {
     async findAll(networkSlug: string, limit: number) {
         // Tambahkan nc.parent_id di sini
         const queryMain = `
-          SELECT nc.id, nf.name, nf.description, nf.status 
+          SELECT nf.id, nf.name, nf.description, nf.status 
           FROM news_fokus nf
           INNER JOIN network_fokus nfk ON nfk.id_kanal = nf.id
           INNER JOIN network n ON n.id = nfk.id_network
