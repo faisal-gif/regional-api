@@ -13,9 +13,8 @@ export class FocusService {
     async findAll(networkSlug: string) {
      
         const queryMain = `
-          SELECT nf.id, nf.name, nf.description, nf.status ,COUNT(na.id) as total_articles
+          SELECT nf.id, nf.name, nf.description, nf.status
           FROM news_fokus nf
-          LEFT JOIN news na ON na.fokus_id = nf.id AND na.status = '1'
           INNER JOIN network_fokus nfk ON nfk.id_fokus = nf.id
           INNER JOIN network n ON n.id = nfk.id_network
           WHERE n.slug = ? AND nf.status = '1'
