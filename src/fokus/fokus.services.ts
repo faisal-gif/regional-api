@@ -15,7 +15,7 @@ export class FocusService {
         const queryMain = `
           SELECT nf.id, nf.name, nf.description, nf.status 
           FROM news_fokus nf
-          INNER JOIN network_fokus nfk ON nfk.id_kanal = nf.id
+          INNER JOIN network_fokus nfk ON nfk.id_fokus = nf.id
           INNER JOIN network n ON n.id = nfk.id_network
           WHERE n.slug = ? AND nf.status = '1'
           ORDER BY nf.id ASC
