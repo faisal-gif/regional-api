@@ -64,6 +64,21 @@ export class NewsController {
     };
   }
 
+  @Get('/fokus/:fokus_id')
+  async findByFokus(
+    @Param('fokus_id') fokusId: number,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('networkId') networkId = 2) {
+
+    const data = await this.service.findByFokus(+page, +limit, +networkId, +fokusId);
+
+    return {
+      success: true,
+      data,
+    };
+  }
+
   @Get('/:code')
   async findOne(@Param('code') code: string) {
     const data = await this.service.findOne(code);
