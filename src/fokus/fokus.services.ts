@@ -30,8 +30,8 @@ export class FocusService {
               SELECT nf.id, nf.name, nf.description, nf.status, COUNT(na.id) as total_articles
               FROM news_fokus nf
               LEFT JOIN news na ON na.fokus_id = nf.id AND na.status = '1'
-              WHERE status = '1'
-              ORDER BY id ASC
+              WHERE nf.status = '1'
+              ORDER BY nf.id ASC
               LIMIT ?
           `;
             result = await this.repo.query(queryFallback, [limit]);
