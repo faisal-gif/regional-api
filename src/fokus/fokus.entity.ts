@@ -5,6 +5,7 @@ export class Focus {
     @PrimaryGeneratedColumn() id: number;
     @Column() name: string;
     @Column() keyword: string;
+    @Column() description: string;
     @Column() img_desktop_list: string;
     @Column() img_desktop_news: string;
     @Column() img_mobile: string;

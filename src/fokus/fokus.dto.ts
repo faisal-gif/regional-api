@@ -14,7 +14,14 @@ export class FocusDto {
     status: string;
 
     @Expose()
-    total_articles: number;
+    img_desktop_list: string;
+
+    @Expose()
+    img_desktop_news: string;
+
+    @Expose()
+    img_mobile: string;
+
 
     // Tambahkan untuk transform URL
     @Expose()

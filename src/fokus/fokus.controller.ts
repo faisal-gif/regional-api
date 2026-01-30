@@ -14,4 +14,14 @@ export class FocusController {
         };
     }
 
+
+      @Get('/detail/:id')
+        async findDetailFokus(@Param('id') id: number) {
+            const data = await this.service.findDetailFokus(+id)
+            return {
+                success: true,
+                data,
+            };
+        }
+
 }

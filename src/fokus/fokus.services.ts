@@ -11,7 +11,7 @@ export class FocusService {
     constructor(@InjectRepository(Focus) private repo: Repository<Focus>) { }
 
     async findAll(networkSlug: string) {
-     
+
         const queryMain = `
           SELECT nf.id, nf.name, nf.description, nf.status
           FROM news_fokus nf
@@ -33,10 +33,32 @@ export class FocusService {
             result = await this.repo.query(queryFallback);
         }
 
-
-     
         return plainToInstance(FocusDto, result, { excludeExtraneousValues: true });
     }
+
+    async findDetailFokus(id: number) {
+        const result = await this.repo.findOne({
+            where: { id: id, status: '1' },
+            select: {
+                id: true,
+                keyword: true,
+                img_desktop_list: true,
+                img_desktop_news: true,
+                img_mobile: true,
+                name: true,
+                description: true,
+            }
+        });
+
+        if (!result) return null;
+
+        // Transform menggunakan NewsDto
+        return plainToInstance(FocusDto, result, {
+            excludeExtraneousValues: true, // Memastikan hanya yang ada @Expose yang muncul
+        });
+
+
+    };
 
 
 
