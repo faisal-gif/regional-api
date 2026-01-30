@@ -321,14 +321,15 @@ export class NewsService {
             FROM (
                 SELECT 
                     news.id, news.image, news.title, news.description, 
-                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id,
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1 AND news.fokus_id = ?
                 ORDER BY news.datepub DESC
                 LIMIT ? OFFSET ?
             ) AS n
-            INNER JOIN news_cat nc ON nc.id = n.cat_id 
+            INNER JOIN news_cat nc ON nc.id = n.cat_id
+            INNER JOIN news_fokus nf ON nf.id = n.fokus_id 
             INNER JOIN writers w ON w.id = n.writer_id
         `, [networkId, fokusId, limit, offset]);
     }
