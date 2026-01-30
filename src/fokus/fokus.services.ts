@@ -35,23 +35,9 @@ export class FocusService {
             result = await this.repo.query(queryFallback, [limit]);
         }
 
-        // Penambahan networkSlug ke tiap item
-        const enrichedData = result.map((item) => ({
-            ...item,
-            networkSlug,
-        }));
 
-        const buildTree = (items, parentId = null) => {
-            return items
-                .filter(item => item.parent_kanal === parentId)
-                .map(item => ({
-                    ...item,
-                    children: buildTree(items, item.id)
-                }));
-        };
-
-        const treeData = buildTree(enrichedData);
-        return plainToInstance(FocusDto, treeData, { excludeExtraneousValues: true });
+     
+        return plainToInstance(FocusDto, result, { excludeExtraneousValues: true });
     }
 
 
