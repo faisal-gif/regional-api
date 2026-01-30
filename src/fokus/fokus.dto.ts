@@ -1,6 +1,6 @@
 import { Expose, Transform } from "class-transformer";
 
-export class FocusDto { 
+export class FocusDto {
     @Expose()
     id: number;
 
@@ -9,6 +9,9 @@ export class FocusDto {
 
     @Expose()
     description: string;
+
+    @Expose()
+    keyword: string;
 
     @Expose()
     status: string;
