@@ -13,6 +13,9 @@ export class FocusDto {
     @Expose()
     status: string;
 
+    @Expose()
+    total_articles: number;
+
     // Tambahkan untuk transform URL
     @Expose()
     @Transform(({ obj }) =>
