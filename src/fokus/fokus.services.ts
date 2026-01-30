@@ -13,8 +13,9 @@ export class FocusService {
     async findAll(networkSlug: string, limit: number) {
         // Tambahkan nc.parent_id di sini
         const queryMain = `
-          SELECT nf.id, nf.name, nf.description, nf.status 
+          SELECT nf.id, nf.name, nf.description, nf.status ,COUNT(na.id) as total_articles
           FROM news_fokus nf
+          LEFT JOIN news na ON na.fokus_id = nf.id AND na.status = '1'
           INNER JOIN network_fokus nfk ON nfk.id_fokus = nf.id
           INNER JOIN network n ON n.id = nfk.id_network
           WHERE n.slug = ? AND nf.status = '1'
@@ -26,8 +27,9 @@ export class FocusService {
 
         if (result.length === 0) {
             const queryFallback = `
-              SELECT id, s name, description, status 
-              FROM news_fokus
+              SELECT nf.id, nf.name, nf.description, nf.status, COUNT(na.id) as total_articles
+              FROM news_fokus nf
+              LEFT JOIN news na ON na.fokus_id = nf.id AND na.status = '1'
               WHERE status = '1'
               ORDER BY id ASC
               LIMIT ?
