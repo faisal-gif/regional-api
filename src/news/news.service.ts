@@ -284,73 +284,75 @@ export class NewsService {
         return finalResponse;
     }
 
-    async findByFokus(
-        page: number,
-        limit: number,
-        networkId: number,
-        fokusId: number // Diubah dari categoryId
-    ) {
-        // 1. Sesuaikan Cache Key
-        const cacheKey = `news_by_fokus_net${networkId}_p${page}_l${limit}_fok${fokusId}`;
-        const cachedData = await this.cacheManager.get<any>(cacheKey);
-        if (cachedData) return cachedData;
+  async findByFokus(
+    page: number,
+    limit: number,
+    networkId: number,
+    fokusId: number
+) {
+    // 1. Update Cache Key agar spesifik untuk Fokus
+    const cacheKey = `news_by_fokus_net${networkId}_p${page}_l${limit}_fok${fokusId}`;
+    const cachedData = await this.cacheManager.get<any>(cacheKey);
+    if (cachedData) return cachedData;
 
-        const offset = (page - 1) * limit;
-        let result = [];
-        let total = 0;
+    const offset = (page - 1) * limit;
+    let result = [];
+    let total = 0;
 
-        // --- SKENARIO 1: Cari berdasarkan Network DAN Fokus ---
-        // Menggunakan news.fokus_id sesuai instruksi Anda
-        const countResult = await this.repo.query(`
+    // --- SKENARIO: Cari berdasarkan Network DAN Fokus ---
+    const countResult = await this.repo.query(`
         SELECT COUNT(news.id) as total 
         FROM news 
         INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
         WHERE news.status = 1 AND news.fokus_id = ?
     `, [networkId, fokusId]);
 
-        total = parseInt(countResult[0].total);
+    total = parseInt(countResult[0].total);
 
-        if (total > 0) {
-            result = await this.repo.query(`
+    if (total > 0) {
+        result = await this.repo.query(`
             SELECT 
                 n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
-                n.views, n.writer_id, nf.name AS fokus_name, 
+                n.views, n.writer_id, 
+                nc.name AS category_name,   
+                nc.slug AS category_slug,
+                nf.name AS fokus_name,   
                 w.name AS author
             FROM (
                 SELECT 
                     news.id, news.image, news.title, news.description, 
-                    news.datepub, news.is_code, news.views, news.fokus_id, news.writer_id
+                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1 AND news.fokus_id = ?
                 ORDER BY news.datepub DESC
                 LIMIT ? OFFSET ?
             ) AS n
-            INNER JOIN news_fokus nf ON nf.id = n.fokus_id -- Join ke table news_fokus
+            INNER JOIN news_cat nc ON nc.id = n.cat_id 
             INNER JOIN writers w ON w.id = n.writer_id
         `, [networkId, fokusId, limit, offset]);
-        }
-
-        // --- TRANSFORM & WRAP RESPONSE ---
-        const data = plainToInstance(NewsDto, result, {
-            excludeExtraneousValues: true,
-        });
-
-        const finalResponse = {
-            data,
-            meta: {
-                total,
-                page,
-                limit,
-                lastPage: Math.ceil(total / limit)
-            }
-        };
-
-        // 3. SIMPAN KE CACHE (120000 ms = 2 menit)
-        await this.cacheManager.set(cacheKey, finalResponse, 120000);
-
-        return finalResponse;
     }
+
+    // --- TRANSFORM & WRAP RESPONSE ---
+    const data = plainToInstance(NewsDto, result, {
+        excludeExtraneousValues: true,
+    });
+
+    const finalResponse = {
+        data,
+        meta: {
+            total,
+            page,
+            limit,
+            lastPage: Math.ceil(total / limit)
+        }
+    };
+
+    // SIMPAN KE CACHE
+    await this.cacheManager.set(cacheKey, finalResponse, 120000);
+
+    return finalResponse;
+}
 
     async findOne(code: string) {
         const cacheKey = `news_detail_${code}`;
