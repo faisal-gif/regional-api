@@ -7,10 +7,16 @@ export class FocusDto {
     @Expose()
     name: string;
 
+    @Expose()
+    description: string;
+
+    @Expose()
+    status: string;
+
     // Tambahkan untuk transform URL
     @Expose()
     @Transform(({ obj }) =>
-        `https://${obj.networkSlug}.times.co.id/fokus/${obj.id}`,
+        `/fokus/${obj.id}/`,
         { toClassOnly: true }
     )
     url: string;
