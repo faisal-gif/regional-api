@@ -27,11 +27,10 @@ export class FocusService {
 
         if (result.length === 0) {
             const queryFallback = `
-              SELECT nf.id, nf.name, nf.description, nf.status, COUNT(na.id) as total_articles
-              FROM news_fokus nf
-              LEFT JOIN news na ON na.fokus_id = nf.id AND na.status = '1'
-              WHERE nf.status = '1'
-              ORDER BY nf.id ASC
+              SELECT id, name, description, status 
+              FROM news_fokus
+              WHERE status = '1'
+              ORDER BY id ASC
               LIMIT ?
           `;
             result = await this.repo.query(queryFallback, [limit]);
