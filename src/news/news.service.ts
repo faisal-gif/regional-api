@@ -314,7 +314,7 @@ export class NewsService {
             result = await this.repo.query(`
             SELECT 
                 n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
-                n.views, n.writer_id, nf.nama AS fokus_name, 
+                n.views, n.writer_id, nf.name AS fokus_name, 
                 w.name AS author
             FROM (
                 SELECT 
