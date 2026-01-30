@@ -321,7 +321,7 @@ export class NewsService {
             FROM (
                 SELECT 
                     news.id, news.image, news.title, news.description, 
-                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id, news.fokus_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1 AND news.fokus_id = ?
