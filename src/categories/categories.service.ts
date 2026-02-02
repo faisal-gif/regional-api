@@ -67,11 +67,11 @@ export class CategoryService {
         INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
         INNER JOIN network n ON n.id = nk.id_network
         WHERE n.slug = ? AND nc.status = '1'
-        ORDER BY nc.name ASC
+        ORDER BY nk.sequence DESC
     `, [networkSlug]);
 
         if (categories.length === 0) {
-            categories = await this.repo.query(`SELECT id, slug, name, description FROM news_cat WHERE status = '1' ORDER BY name ASC`);
+            categories = await this.repo.query(`SELECT id, slug, name, description FROM news_cat WHERE status = '1' ORDER BY id ASC`);
         }
 
         // 3. Ambil Berita untuk masing-masing Kategori
