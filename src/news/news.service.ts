@@ -21,7 +21,7 @@ export class NewsService {
     SELECT n.*, nc.name AS category_name, nc.slug as category_slug, w.name AS author
     FROM (
         SELECT news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
-               news.title, news.description, news.is_code, news.views
+               news.title, news.description, news.is_code, news.views, news.caption
         FROM news
         INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
         WHERE news.status = 1
@@ -41,11 +41,11 @@ export class NewsService {
         if (result.length === 0) {
             result = await this.repo.query(`
             SELECT 
-                n.id, n.is_code, n.image, n.title, n.description, n.datepub, n.is_code, 
+                n.id, n.is_code, n.image,n.caption, n.title, n.description, n.datepub, n.is_code, 
                 n.views, n.writer_id, nc.slug as category_slug, nc.name AS category_name, w.name AS author
             FROM (
                 SELECT 
-                    news.id, news.image, news.title, news.description, 
+                    news.id, news.image, news.title, news.description,  news.caption, 
                     news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
@@ -67,7 +67,7 @@ export class NewsService {
             excludeExtraneousValues: true,
         });
 
-      
+
 
         return finalData;
 
