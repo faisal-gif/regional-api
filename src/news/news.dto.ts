@@ -11,6 +11,9 @@ export class NewsDto {
     image: string;
 
     @Expose()
+    caption: string;
+
+    @Expose()
     datepub: Date;
 
     @Expose()
