@@ -18,7 +18,7 @@ export class CategoryService {
         INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
         INNER JOIN network n ON n.id = nk.id_network
         WHERE n.slug = ? AND nc.status = '1'
-        ORDER BY nc.parent_kanal ASC, nk.sequence ASC 
+        ORDER BY nc.parent_kanal ASC, nk.sequence DESC 
         LIMIT ?
     `;
 
@@ -29,7 +29,7 @@ export class CategoryService {
             SELECT id, slug, name, description, status, parent_kanal 
             FROM news_cat
             WHERE status = '1'
-            ORDER BY parent_kanal ASC, name ASC
+            ORDER BY parent_kanal ASC, name DESC
             LIMIT ?
         `;
             result = await this.repo.query(queryFallback, [limit]);
