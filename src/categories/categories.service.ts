@@ -79,12 +79,12 @@ export class CategoryService {
             categories.map(async (cat) => {
                 const news = await this.repo.query(`
                 SELECT 
-                    n.id, n.image, n.title, n.description, n.datepub, n.is_code,
+                    n.id, n.image, n.title, n.title_regional, n.description, n.datepub, n.is_code,
                     n.views, nc.name AS category_name, nc.slug as category_slug, 
                     w.name AS author
                 FROM (
                     SELECT 
-                        news.id, news.image, news.title, news.description, 
+                        news.id, news.image, news.title, news.title_regional, news.description, 
                         news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                     FROM news
                     INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
