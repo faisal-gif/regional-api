@@ -14,9 +14,6 @@ export class NewsService {
 
     async findAll(page: number, limit: number, networkId: number) {
 
-        const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
-        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
-        if (cachedData) return cachedData;
 
         const offset = (page - 1) * limit;
 
@@ -70,7 +67,7 @@ export class NewsService {
             excludeExtraneousValues: true,
         });
 
-        await this.cacheManager.set(cacheKey, finalData, 120000);
+      
 
         return finalData;
 
