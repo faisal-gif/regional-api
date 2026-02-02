@@ -29,7 +29,7 @@ export class CategoryService {
             SELECT id, slug, name, description, status, parent_kanal 
             FROM news_cat
             WHERE status = '1'
-            ORDER BY parent_kanal ASC, name DESC
+            ORDER BY parent_kanal ASC, name ASC
             LIMIT ?
         `;
             result = await this.repo.query(queryFallback, [limit]);
