@@ -67,7 +67,7 @@ export class CategoryService {
         INNER JOIN network_kanal nk ON nk.id_kanal = nc.id
         INNER JOIN network n ON n.id = nk.id_network
         WHERE n.slug = ? AND nc.status = '1'
-        ORDER BY nk.sequence ASC
+        ORDER BY nk.sequence DESC
     `, [networkSlug]);
 
         if (categories.length === 0) {
