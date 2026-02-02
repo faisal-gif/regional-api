@@ -15,6 +15,7 @@ export class Network {
     @Column() fb: string;
     @Column() tw: string;
     @Column() yt: string;
+    @Column() ig: string;
     @Column() gp: string;
     @Column() logo: string;
     @Column() logo_m: string;

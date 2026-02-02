@@ -25,6 +25,7 @@ export class NetworkService {
                 fb: true,
                 tw: true,
                 yt: true,
+                ig:true,
                 gp: true,
                 gverify: true,
                 logo: true,
