@@ -7,6 +7,7 @@ import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, PrimaryGe
 export class News {
     @PrimaryGeneratedColumn() id: number;
     @Column() title: string;
+    @Column() title_regional: string;
     @Column() is_code: string;
     @Column() description: string;
     @Column() caption: string;

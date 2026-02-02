@@ -21,7 +21,7 @@ export class NewsService {
     SELECT n.*, nc.name AS category_name, nc.slug as category_slug, w.name AS author
     FROM (
         SELECT news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
-               news.title, news.description, news.is_code, news.views, news.caption
+               news.title, news.title_regional, news.description, news.is_code, news.views, news.caption
         FROM news
         INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
         WHERE news.status = 1
@@ -41,11 +41,11 @@ export class NewsService {
         if (result.length === 0) {
             result = await this.repo.query(`
             SELECT 
-                n.id, n.is_code, n.image,n.caption, n.title, n.description, n.datepub, n.is_code, 
+                n.id, n.is_code, n.image,n.caption, n.title, n.title_regional, n.description, n.datepub, n.is_code, 
                 n.views, n.writer_id, nc.slug as category_slug, nc.name AS category_name, w.name AS author
             FROM (
                 SELECT 
-                    news.id, news.image, news.title, news.description,  news.caption, 
+                    news.id, news.image, news.title, news.title_regional, news.description,  news.caption, 
                     news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
@@ -92,7 +92,7 @@ export class NewsService {
             w.name AS author
         FROM (
             SELECT 
-                news.id, news.image, news.title, news.description, 
+                news.id, news.image, news.title, news.title_regional, news.description, 
                 news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
             FROM news
             INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
@@ -118,7 +118,7 @@ export class NewsService {
                 w.name AS author
             FROM (
                 SELECT 
-                    news.id, news.image, news.title, news.description, 
+                    news.id, news.image, news.title, news.title_regional, news.description, 
                     news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
@@ -151,9 +151,9 @@ export class NewsService {
 
         // --- 1. QUERY UTAMA: Filter berdasarkan Kanal yang dipilih ---
         const queryWithFilter = `
-        SELECT n.id, n.is_code, n.title, n.description, n.datepub, n.image, n.views, nc.name AS category_name, nc.slug as category_slug, w.name AS author_name
+        SELECT n.id, n.is_code, n.title, n.title_regional, n.description, n.datepub, n.image, n.views, nc.name AS category_name, nc.slug as category_slug, w.name AS author_name
         FROM (
-            SELECT news.id, news.is_code, news.image, news.title, news.description, news.datepub, news.views, news.cat_id, news.writer_id
+            SELECT news.id, news.is_code, news.image, news.title, news.title_regional, news.description, news.datepub, news.views, news.cat_id, news.writer_id
             FROM news
             INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
             INNER JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
@@ -176,9 +176,9 @@ export class NewsService {
         // --- 2. FALLBACK: Jika kosong (tidak pilih kanal atau tidak ada berita populer hari ini di kanal tsb) ---
         if (result.length === 0) {
             const queryFallback = `
-            SELECT n.id, n.is_code, n.title, n.description, n.datepub, n.image, n.views, nc.name AS category_name, nc.slug AS category_slug, w.name AS author_name
+            SELECT n.id, n.is_code, n.title, n.title_regional, n.description, n.datepub, n.image, n.views, nc.name AS category_name, nc.slug AS category_slug, w.name AS author_name
             FROM (
-                SELECT news.id, news.is_code, news.image, news.title, news.description, news.datepub, news.views, news.cat_id, news.writer_id
+                SELECT news.id, news.is_code, news.image, news.title, news.title_regional, news.description, news.datepub, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1
@@ -240,12 +240,12 @@ export class NewsService {
         if (total > 0) {
             result = await this.repo.query(`
             SELECT 
-                n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
+                n.id, n.is_code, n.image, n.title, n.title_regional, n.description, n.datepub, 
                 n.views, n.writer_id, nc.name AS category_name, 
                 nc.slug AS category_slug, w.name AS author
             FROM (
                 SELECT 
-                    news.id, news.image, news.title, news.description, 
+                    news.id, news.image, news.title, news.title_regional, news.description, 
                     news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
@@ -309,7 +309,7 @@ export class NewsService {
         if (total > 0) {
             result = await this.repo.query(`
             SELECT 
-                n.id, n.is_code, n.image, n.title, n.description, n.datepub, 
+                n.id, n.is_code, n.image, n.title, n.title_regional, n.description, n.datepub, 
                 n.views, n.writer_id, 
                 nc.name AS category_name,   
                 nc.slug AS category_slug,
@@ -317,7 +317,7 @@ export class NewsService {
                 w.name AS author
             FROM (
                 SELECT 
-                    news.id, news.image, news.title, news.description, 
+                    news.id, news.image, news.title, news.title_regional, news.description, 
                     news.datepub, news.is_code, news.views, news.cat_id, news.writer_id, news.fokus_id
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
@@ -380,6 +380,7 @@ export class NewsService {
                 id: true,
                 is_code: true,
                 title: true,
+                title_regional: true,
                 tag: true,
                 description: true,
                 caption: true,

@@ -20,6 +20,9 @@ export class NewsDto {
     title: string;
 
     @Expose()
+    title_regional: string;
+
+    @Expose()
     category_name: string;
 
     @Expose()

@@ -20,6 +20,10 @@ export class NewsDetailDto {
     title: string;
 
     @Expose()
+    title_regional: string;
+
+
+    @Expose()
     @Transform(({ obj }) => obj.writer?.name)
     writer_name: string;
 
