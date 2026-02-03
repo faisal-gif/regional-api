@@ -30,6 +30,7 @@ export class NetworkService {
                 gverify: true,
                 logo: true,
                 logo_m: true,
+                img_socmed: true,
             }
         });
     }

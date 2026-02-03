@@ -19,6 +19,7 @@ export class Network {
     @Column() gp: string;
     @Column() logo: string;
     @Column() logo_m: string;
+    @Column() img_socmed: string;
 
 
 
