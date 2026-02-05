@@ -159,7 +159,7 @@ export class NewsService {
             INNER JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
             WHERE news.status = 1
             ${categoryId ? 'AND news.cat_id = ?' : ''}
-            AND news.datepub >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            AND news.datepub >= CURDATE()
             ORDER BY news.views DESC     
             LIMIT ? OFFSET ?
         ) AS n
