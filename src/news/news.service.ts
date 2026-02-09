@@ -362,14 +362,6 @@ export class NewsService {
     async findOne(code: string) {
         const cacheKey = `news_detail_${code}`;
 
-        // 1. Increment Views (Gunakan Raw SQL juga agar lebih enteng)
-        // Fire-and-forget (tanpa await) agar tidak memblokir response
-        const randomViews = Math.floor(Math.random() * 200) + 1;
-        this.repo.query(
-            `UPDATE news SET views = views + ? WHERE is_code = ?`,
-            [randomViews, code]
-        ).catch(err => console.error("Gagal update views:", err));
-
         // 2. Cek Cache
         const cachedData = await this.cacheManager.get<NewsDetailDto>(cacheKey);
         if (cachedData) return cachedData;
