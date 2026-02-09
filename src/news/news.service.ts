@@ -362,52 +362,60 @@ export class NewsService {
     async findOne(code: string) {
         const cacheKey = `news_detail_${code}`;
 
-        // 1. Jalankan Increment Views di background (tanpa await agar cepat)
-        // Kita tetap update DB setiap kali fungsi ini dipanggil
+        // 1. Increment Views (Gunakan Raw SQL juga agar lebih enteng)
+        // Fire-and-forget (tanpa await) agar tidak memblokir response
         const randomViews = Math.floor(Math.random() * 200) + 1;
-        this.repo.increment({ is_code: code }, "views", randomViews)
-            .catch(err => console.error("Gagal update views:", err));
+        this.repo.query(
+            `UPDATE news SET views = views + ? WHERE is_code = ?`,
+            [randomViews, code]
+        ).catch(err => console.error("Gagal update views:", err));
 
-        // 2. Cek apakah data artikel ada di Cache
+        // 2. Cek Cache
         const cachedData = await this.cacheManager.get<NewsDetailDto>(cacheKey);
-        if (cachedData) {
-            // Jika ada di cache, langsung kembalikan. 
-            // Catatan: Angka 'views' di sini adalah angka saat cache dibuat.
-            return cachedData;
-        }
+        if (cachedData) return cachedData;
 
-        // 3. Jika Cache kosong, ambil dari Database
-        const result = await this.repo.findOne({
-            where: { is_code: code, status: '1' },
-            relations: {
-                category: true,
-                writer: true
+        // 3. Raw SQL Query (Pengganti findOne)
+        // Kita gunakan LEFT JOIN untuk mengambil data writer dan category sekaligus
+        const result = await this.repo.query(`
+            SELECT 
+                n.id, n.is_code, n.title, n.title_regional, n.tag, 
+                n.description, n.caption, n.content, n.image, 
+                n.views, n.datepub, n.locus,
+                w.name AS writer_name,
+                nc.id AS category_id, nc.name AS category_name, nc.slug AS category_slug
+            FROM news n
+            LEFT JOIN writers w ON w.id = n.writer_id
+            LEFT JOIN news_cat nc ON nc.id = n.cat_id
+            WHERE n.is_code = ? AND n.status = 1
+            LIMIT 1
+        `, [code]);
+
+        if (result.length === 0) return null;
+
+        const rawRow = result[0];
+
+        // 4. Manual Mapping (PENTING)
+        // Karena Raw SQL mengembalikan data flat (writer_name, category_id),
+        // kita harus memasukkannya ke dalam object 'writer' dan 'category'
+        // agar cocok dengan struktur NewsDetailDto
+        const mappedResult = {
+            ...rawRow,
+            writer: {
+                name: rawRow.writer_name
             },
-            select: {
-                id: true,
-                is_code: true,
-                title: true,
-                title_regional: true,
-                tag: true,
-                description: true,
-                caption: true,
-                content: true,
-                image: true,
-                views: true,
-                datepub: true,
-                locus: true,
-                writer: { name: true },
-                category: { id: true, name: true, slug: true }
+            category: {
+                id: rawRow.category_id,
+                name: rawRow.category_name,
+                slug: rawRow.category_slug
             }
-        });
+        };
 
-        if (!result) return null;
-
-        const data = plainToInstance(NewsDetailDto, result, {
+        // 5. Transform ke DTO
+        const data = plainToInstance(NewsDetailDto, mappedResult, {
             excludeExtraneousValues: true,
         });
 
-        // 4. Simpan ke Cache (Misal: 30 menit = 1800000 ms)
+        // 6. Simpan ke Cache (120000 ms = 2 menit)
         await this.cacheManager.set(cacheKey, data, 120000);
 
         return data;
