@@ -13,63 +13,60 @@ export class NewsService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache) { }
 
     async findAll(page: number, limit: number, networkId: number) {
-    const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
+        const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
+        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+        if (cachedData) return cachedData;
 
-    // 1. Cek Cache
-    const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
-    if (cachedData) return cachedData;
+        const offset = (page - 1) * limit;
 
-    const offset = (page - 1) * limit;
-
-    /**
-     * OPTIMASI QUERY:
-     * - Menggunakan LEFT JOIN untuk network_kanal & network_fokus.
-     * - Memberikan bobot 'priority' 1 jika ada di kanal/fokus network tersebut, 
-     * dan priority 0 jika hanya berita umum di network tersebut.
-     * - Ini menghilangkan kebutuhan "Double Query" (Fallback).
-     */
-    const result = await this.repo.query(`
+        // QUERY OPTIMIZED UNTUK MYISAM
+        // Menghindari subquery, menggunakan JOIN langsung yang lebih ringan untuk table-locking
+        const result = await this.repo.query(`
         SELECT 
-            n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, 
-            n.datepub, n.views, nc.name AS category_name, nc.slug as category_slug, 
+            news.id, news.is_code, news.image, news.caption, news.title, 
+            news.title_regional, news.datepub, news.views, 
+            nc.name AS category_name, nc.slug as category_slug, 
             w.name AS author
-        FROM (
-            SELECT 
-                news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
-                news.title, news.title_regional, news.is_code, news.views, news.caption,
-                (CASE 
-                    WHEN nk.id_kanal IS NOT NULL OR nf.id_fokus IS NOT NULL THEN 1 
-                    ELSE 0 
-                 END) as priority
-            FROM news
-            INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-            LEFT JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
-            LEFT JOIN network_fokus nf ON nf.id_fokus = news.fokus_id AND nf.id_network = ?
-            WHERE news.status = 1
-            ORDER BY priority DESC, news.datepub DESC
-            LIMIT ? OFFSET ?
-        ) AS n
-        INNER JOIN news_cat nc ON nc.id = n.cat_id
-        INNER JOIN writers w ON w.id = n.writer_id
-        ORDER BY n.priority DESC, n.datepub DESC
+        FROM news
+        INNER JOIN news_network nn ON nn.news_id = news.id
+        LEFT JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
+        LEFT JOIN network_fokus nf ON nf.id_fokus = news.fokus_id AND nf.id_network = ?
+        INNER JOIN news_cat nc ON nc.id = news.cat_id
+        INNER JOIN writers w ON w.id = news.writer_id
+        WHERE nn.net_id = ? 
+          AND news.status = 1
+          AND (nk.id_kanal IS NOT NULL OR nf.id_fokus IS NOT NULL)
+        ORDER BY news.datepub DESC
+        LIMIT ? OFFSET ?
     `, [networkId, networkId, networkId, limit, offset]);
 
-    if (!result || result.length === 0) return [];
+        // FALLBACK: Jika tidak ada berita di kanal/fokus network tersebut
+        let finalResult = result;
+        if (result.length === 0) {
+            finalResult = await this.repo.query(`
+            SELECT 
+                news.id, news.is_code, news.image, news.caption, news.title, 
+                news.title_regional, news.datepub, news.views, 
+                nc.name AS category_name, nc.slug as category_slug, 
+                w.name AS author
+            FROM news
+            INNER JOIN news_network nn ON nn.news_id = news.id
+            INNER JOIN news_cat nc ON nc.id = news.cat_id
+            INNER JOIN writers w ON w.id = news.writer_id
+            WHERE nn.net_id = ? AND news.status = 1
+            ORDER BY news.datepub DESC
+            LIMIT ? OFFSET ?
+        `, [networkId, limit, offset]);
+        }
 
-    // 2. Transform ke DTO
-    const finalData = plainToInstance(NewsDto, result, {
-        excludeExtraneousValues: true,
-    });
+        const finalData = plainToInstance(NewsDto, finalResult, { excludeExtraneousValues: true });
 
-    // 3. Simpan ke Cache dengan JITTER (Mencegah Cache Stampede)
-    // Menambahkan random detik antara 0-60 agar 190 domain tidak hit DB barengan
-    const jitter = Math.floor(Math.random() * 60000); 
-    const ttl = 120000 + jitter; // 2 menit + random 
-    
-    await this.cacheManager.set(cacheKey, finalData, ttl);
+        // Jitter TTL agar tidak membebani MyISAM secara serentak
+        const ttl = 120000 + Math.floor(Math.random() * 60000);
+        await this.cacheManager.set(cacheKey, finalData, ttl);
 
-    return finalData;
-}
+        return finalData;
+    }
 
     async findHeadline(page: number, limit: number, networkId: number) {
         const cacheKey = `news_headline_net${networkId}_p${page}_l${limit}`;
