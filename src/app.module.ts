@@ -40,10 +40,10 @@ import { CacheModule } from '@nestjs/cache-manager';
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
       extra: {
-        connectionLimit: 5, 
+        connectionLimit: 50, 
         waitForConnections: true,
         queueLimit: 0,
-        idleTimeout: 10000,
+        idleTimeout: 600000,
       },
     }),
   ],
