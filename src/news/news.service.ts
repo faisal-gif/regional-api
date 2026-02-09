@@ -13,73 +13,63 @@ export class NewsService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache) { }
 
     async findAll(page: number, limit: number, networkId: number) {
-        // 1. Buat Cache Key Unik (berdasarkan network, page, dan limit)
-        const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
+    const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
 
-        // 2. Cek apakah data ada di Cache
-        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
-        if (cachedData) return cachedData;
+    // 1. Cek Cache
+    const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+    if (cachedData) return cachedData;
 
-        // --- Mulai Logika Database (Jika Cache Miss) ---
-        const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-        let result = await this.repo.query(`
-            SELECT n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, 
-            n.description, n.datepub, n.views, nc.name AS category_name, nc.slug as category_slug, w.name AS author
-            FROM (
-                SELECT news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
-                    news.title, news.title_regional, news.description, news.is_code, news.views, news.caption
-                FROM news
-                INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-                WHERE news.status = 1
-                AND (
-                    news.cat_id IN (SELECT id_kanal FROM network_kanal WHERE id_network = ?)
-                    OR 
-                    news.fokus_id IN (SELECT id_fokus FROM network_fokus WHERE id_network = ?)
-                )
-                ORDER BY news.datepub DESC
-                LIMIT ? OFFSET ?
-            ) AS n
-            INNER JOIN news_cat nc ON nc.id = n.cat_id
-            INNER JOIN writers w ON w.id = n.writer_id
-        `, [networkId, networkId, networkId, limit, offset]);
+    /**
+     * OPTIMASI QUERY:
+     * - Menggunakan LEFT JOIN untuk network_kanal & network_fokus.
+     * - Memberikan bobot 'priority' 1 jika ada di kanal/fokus network tersebut, 
+     * dan priority 0 jika hanya berita umum di network tersebut.
+     * - Ini menghilangkan kebutuhan "Double Query" (Fallback).
+     */
+    const result = await this.repo.query(`
+        SELECT 
+            n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, 
+            n.datepub, n.views, nc.name AS category_name, nc.slug as category_slug, 
+            w.name AS author
+        FROM (
+            SELECT 
+                news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
+                news.title, news.title_regional, news.is_code, news.views, news.caption,
+                (CASE 
+                    WHEN nk.id_kanal IS NOT NULL OR nf.id_fokus IS NOT NULL THEN 1 
+                    ELSE 0 
+                 END) as priority
+            FROM news
+            INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+            LEFT JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
+            LEFT JOIN network_fokus nf ON nf.id_fokus = news.fokus_id AND nf.id_network = ?
+            WHERE news.status = 1
+            ORDER BY priority DESC, news.datepub DESC
+            LIMIT ? OFFSET ?
+        ) AS n
+        INNER JOIN news_cat nc ON nc.id = n.cat_id
+        INNER JOIN writers w ON w.id = n.writer_id
+        ORDER BY n.priority DESC, n.datepub DESC
+    `, [networkId, networkId, networkId, limit, offset]);
 
-        // 2. Logic Fallback: Jika hasil kosong, tampilkan semua berita dari network tersebut
-        if (result.length === 0) {
-            result = await this.repo.query(`
-                SELECT 
-                    n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, n.description, n.datepub, n.is_code, 
-                    n.views, n.writer_id, nc.slug as category_slug, nc.name AS category_name, w.name AS author
-                FROM (
-                    SELECT 
-                        news.id, news.image, news.title, news.title_regional, news.description,  news.caption, 
-                        news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
-                    FROM news
-                    INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-                    WHERE news.status = 1
-                    ORDER BY news.datepub DESC
-                    LIMIT ? OFFSET ?
-                ) AS n
-                INNER JOIN news_cat nc ON nc.id = n.cat_id
-                INNER JOIN writers w ON w.id = n.writer_id
-            `, [networkId, limit, offset]);
-        }
+    if (!result || result.length === 0) return [];
 
-        // 3. Inject networkSlug dan Transform ke DTO
-        const enrichedData = result.map((item) => ({
-            ...item
-        }));
+    // 2. Transform ke DTO
+    const finalData = plainToInstance(NewsDto, result, {
+        excludeExtraneousValues: true,
+    });
 
-        const finalData = plainToInstance(NewsDto, enrichedData, {
-            excludeExtraneousValues: true,
-        });
+    // 3. Simpan ke Cache dengan JITTER (Mencegah Cache Stampede)
+    // Menambahkan random detik antara 0-60 agar 190 domain tidak hit DB barengan
+    const jitter = Math.floor(Math.random() * 60000); 
+    const ttl = 120000 + jitter; // 2 menit + random 
+    
+    await this.cacheManager.set(cacheKey, finalData, ttl);
 
-        // 4. SIMPAN KE CACHE
-        // Simpan hasil finalData selama 2 menit (120000 ms)
-        await this.cacheManager.set(cacheKey, finalData, 120000);
-
-        return finalData;
-    }
+    return finalData;
+}
 
     async findHeadline(page: number, limit: number, networkId: number) {
         const cacheKey = `news_headline_net${networkId}_p${page}_l${limit}`;
