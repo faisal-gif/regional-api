@@ -89,8 +89,8 @@ export class NewsController {
     };
   }
 
-  @Get('/search')
-  search(@Query('query') query: string, @Query('page') page = 1, @Query('limit') limit = 10, @Query('networkId') networkId = 2) {
+  @Get('/search/:query')
+  search(@Param('query') query: string, @Query('page') page = 1, @Query('limit') limit = 10, @Query('networkId') networkId = 2) {
     return this.service.search(query, +page, +limit, +networkId);
   }
 

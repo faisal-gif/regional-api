@@ -406,34 +406,40 @@ export class NewsService {
         return data;
     }
 
-  async search(query: string, page: number, limit: number, networkId: number) {
-    // 1. Pastikan angka benar-benar angka
+   async search(query: string, page: number, limit: number, networkId: number) {
     const take = Number(limit) || 10;
     const skip = (Number(page) - 1) * take;
-    
-    // 2. Bersihkan string pencarian
-    const searchTerm = `%${(query).trim()}%`;
+    const searchTerm = `%${query.trim()}%`;
 
     if (!query) return [];
 
     try {
         const result = await this.repo.query(
             `
-            SELECT n.*, nc.name as category_name, w.name as author
-            FROM news n
-            INNER JOIN news_network nn ON nn.news_id = n.id
+            SELECT 
+                n.id, n.is_code , n.title,n.title_regional, n.description, n.datepub, n.image, n.views,
+                nc.name as category_name, nc.slug as category_slug, 
+                w.name as author
+            FROM (
+                SELECT news.id
+                FROM news
+                INNER JOIN news_network nn ON nn.news_id = news.id
+                WHERE news.status = 1 
+                  AND nn.net_id = ? 
+                  AND news.title LIKE ?
+                ORDER BY news.datepub DESC
+                LIMIT ? OFFSET ?
+            ) AS fast_search
+        
+            INNER JOIN news n ON n.id = fast_search.id
             INNER JOIN news_cat nc ON nc.id = n.cat_id
             INNER JOIN writers w ON w.id = n.writer_id
-            WHERE n.status = 1 
-              AND nn.net_id = ? 
-              AND n.title LIKE ?
             ORDER BY n.datepub DESC
-            LIMIT ? OFFSET ?
             `,
             [Number(networkId), searchTerm, take, skip]
         );
-        
-        return result || []; // Pastikan tidak return null
+
+        return plainToInstance(NewsDto, result, { excludeExtraneousValues: true }) || [];
     } catch (error) {
         console.error("SQL Error:", error);
         return [];
