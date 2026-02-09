@@ -82,20 +82,17 @@ export class NewsService {
     }
 
     async findHeadline(page: number, limit: number, networkId: number) {
-
         const cacheKey = `news_headline_net${networkId}_p${page}_l${limit}`;
         const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
         if (cachedData) return cachedData;
 
         const offset = (page - 1) * limit;
 
-        // Gunakan parameter yang sama untuk mempermudah maintenance
-        const queryParams = [networkId, networkId, limit, offset];
-
-        // 1. Query Utama: Headline dengan filter kanal
+        // 1. Query Utama: Headline dengan filter kanal (Optimized Columns)
         let result = await this.repo.query(`
         SELECT 
-            n.*, 
+            n.id, n.image, n.title, n.title_regional, n.description, 
+            n.datepub, n.is_code, n.views,
             nc.slug as category_slug, nc.name AS category_name,
             w.name AS author
         FROM (
@@ -115,13 +112,14 @@ export class NewsService {
         ) AS n
         INNER JOIN news_cat nc ON nc.id = n.cat_id
         INNER JOIN writers w ON w.id = n.writer_id
-    `, queryParams);
+    `, [networkId, networkId, limit, offset]);
 
-        // 2. Logic Fallback: Jika headline di kanal kosong
+        // 2. Logic Fallback: Jika headline di kanal kosong (Optimized Columns)
         if (result.length === 0) {
             result = await this.repo.query(`
             SELECT 
-                n.*, 
+                n.id, n.image, n.title, n.title_regional, n.description, 
+                n.datepub, n.is_code, n.views,
                 nc.slug as category_slug, nc.name AS category_name, 
                 w.name AS author
             FROM (
@@ -144,6 +142,7 @@ export class NewsService {
             excludeExtraneousValues: true,
         });
 
+        // Cache selama 2 menit (120000 ms)
         await this.cacheManager.set(cacheKey, finalData, 120000);
 
         return finalData;
