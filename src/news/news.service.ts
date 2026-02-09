@@ -406,43 +406,70 @@ export class NewsService {
         return data;
     }
 
-   async search(query: string, page: number, limit: number, networkId: number) {
-    const take = Number(limit) || 10;
-    const skip = (Number(page) - 1) * take;
-    const searchTerm = `%${query.trim()}%`;
+    async search(query: string, page: number, limit: number, networkId: number) {
+        const take = Number(limit) || 10;
+        const skip = (Number(page) - 1) * take;
+        const searchTerm = `%${query.trim()}%`;
 
-    if (!query) return [];
+        if (!query) return { data: [], meta: { total: 0, page, limit, lastPage: 0 } };
 
-    try {
-        const result = await this.repo.query(
-            `
-            SELECT 
-                n.id, n.is_code , n.title,n.title_regional, n.description, n.datepub, n.image, n.views,
-                nc.name as category_name, nc.slug as category_slug, 
-                w.name as author
-            FROM (
-                SELECT news.id
-                FROM news
-                INNER JOIN news_network nn ON nn.news_id = news.id
-                WHERE news.status = 1 
-                  AND nn.net_id = ? 
-                  AND news.title LIKE ?
-                ORDER BY news.datepub DESC
-                LIMIT ? OFFSET ?
-            ) AS fast_search
-        
-            INNER JOIN news n ON n.id = fast_search.id
-            INNER JOIN news_cat nc ON nc.id = n.cat_id
-            INNER JOIN writers w ON w.id = n.writer_id
-            ORDER BY n.datepub DESC
-            `,
-            [Number(networkId), searchTerm, take, skip]
-        );
+        try {
+            // 2. Hitung Total untuk Pagination Meta
+            const countResult = await this.repo.query(`
+            SELECT COUNT(n.id) as total 
+            FROM news n
+            INNER JOIN news_network nn ON nn.news_id = n.id
+            WHERE n.status = 1 
+            AND nn.net_id = ? 
+            AND MATCH(n.title) AGAINST(? IN NATURAL LANGUAGE MODE)
+        `, [networkId, searchTerm]);
 
-        return plainToInstance(NewsDto, result, { excludeExtraneousValues: true }) || [];
-    } catch (error) {
-        console.error("SQL Error:", error);
-        return [];
+            const total = parseInt(countResult[0].total);
+            let result = [];
+
+            // 3. Ambil Data jika total > 0
+            if (total > 0) {
+                result = await this.repo.query(`
+                SELECT 
+                    n.id, n.is_code, n.image, n.title, n.title_regional, n.description, n.datepub, 
+                    n.views, n.writer_id, nc.name AS category_name, 
+                    nc.slug AS category_slug, w.name AS author
+                FROM (
+                    SELECT news.id
+                    FROM news
+                    INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+                    WHERE news.status = 1 AND news.title LIKE ?
+                    ORDER BY news.datepub DESC
+                    LIMIT ? OFFSET ?
+                ) AS fast_search
+                INNER JOIN news n ON n.id = fast_search.id
+                INNER JOIN news_cat nc ON nc.id = n.cat_id
+                INNER JOIN writers w ON w.id = n.writer_id
+                ORDER BY n.datepub DESC
+            `, [Number(networkId), searchTerm, take, skip]);
+            }
+
+            // 4. Transform & Wrap Response
+            const data = plainToInstance(NewsDto, result, {
+                excludeExtraneousValues: true,
+            });
+
+            const finalResponse = {
+                data,
+                meta: {
+                    total,
+                    page: Number(page),
+                    limit: take,
+                    lastPage: Math.ceil(total / take)
+                }
+            };
+
+
+            return finalResponse;
+
+        } catch (error) {
+            console.error("SQL Error:", error);
+            return { data: [], meta: { total: 0, page, limit, lastPage: 0 } };
+        }
     }
-}
 }
