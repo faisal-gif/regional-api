@@ -406,32 +406,37 @@ export class NewsService {
         return data;
     }
 
-    async search(query, page, limit, networkId) {
-        const offset = (page - 1) * limit;
-        const searchTerm = `%${query?.trim() || ''}%`;
+  async search(query: string, page: number, limit: number, networkId: number) {
+    // 1. Pastikan angka benar-benar angka
+    const take = Number(limit) || 10;
+    const skip = (Number(page) - 1) * take;
+    
+    // 2. Bersihkan string pencarian
+    const searchTerm = `%${(query).trim()}%`;
 
-        if (!query || query.trim() === '') return []; // Atau bisa kembalikan semua data
+    if (!query) return [];
 
-        return this.repo.query(
+    try {
+        const result = await this.repo.query(
             `
-    SELECT n.id, n.title, n.description, n.datepub, n.image, n.views,
-           nc.name AS category_name, w.name AS author
-    FROM (
-        SELECT news.id, news.image, news.title, news.description, news.datepub,
-               news.views, news.cat_id, news.writer_id
-        FROM news
-        INNER JOIN news_network nn ON nn.news_id = news.id
-        WHERE news.status = 1 AND nn.net_id = ?
-          AND (news.title LIKE ? OR news.description LIKE ?)
-        ORDER BY news.datepub DESC
-        LIMIT ? OFFSET ?
-    ) AS n
-    INNER JOIN news_cat nc ON nc.id = n.cat_id
-    INNER JOIN writers w ON w.id = n.writer_id
-    WHERE w.name LIKE ?
-    `,
-            [networkId, searchTerm, searchTerm, limit, offset, searchTerm]
+            SELECT n.*, nc.name as category_name, w.name as author
+            FROM news n
+            INNER JOIN news_network nn ON nn.news_id = n.id
+            INNER JOIN news_cat nc ON nc.id = n.cat_id
+            INNER JOIN writers w ON w.id = n.writer_id
+            WHERE n.status = 1 
+              AND nn.net_id = ? 
+              AND n.title LIKE ?
+            ORDER BY n.datepub DESC
+            LIMIT ? OFFSET ?
+            `,
+            [Number(networkId), searchTerm, take, skip]
         );
+        
+        return result || []; // Pastikan tidak return null
+    } catch (error) {
+        console.error("SQL Error:", error);
+        return [];
     }
-
+}
 }
