@@ -13,49 +13,55 @@ export class NewsService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache) { }
 
     async findAll(page: number, limit: number, networkId: number) {
+        // 1. Buat Cache Key Unik (berdasarkan network, page, dan limit)
+        const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
 
+        // 2. Cek apakah data ada di Cache
+        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+        if (cachedData) return cachedData;
 
+        // --- Mulai Logika Database (Jika Cache Miss) ---
         const offset = (page - 1) * limit;
 
         let result = await this.repo.query(`
-    SELECT n.*, nc.name AS category_name, nc.slug as category_slug, w.name AS author
-    FROM (
-        SELECT news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
-               news.title, news.title_regional, news.description, news.is_code, news.views, news.caption
-        FROM news
-        INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-        WHERE news.status = 1
-        AND (
-            news.cat_id IN (SELECT id_kanal FROM network_kanal WHERE id_network = ?)
-            OR 
-            news.fokus_id IN (SELECT id_fokus FROM network_fokus WHERE id_network = ?)
-        )
-        ORDER BY news.datepub DESC
-        LIMIT ? OFFSET ?
-    ) AS n
-    INNER JOIN news_cat nc ON nc.id = n.cat_id
-    INNER JOIN writers w ON w.id = n.writer_id
-`, [networkId, networkId, networkId, limit, offset]);
-
-        // 2. Logic Fallback: Jika hasil kosong, tampilkan semua berita dari network tersebut
-        if (result.length === 0) {
-            result = await this.repo.query(`
-            SELECT 
-                n.id, n.is_code, n.image,n.caption, n.title, n.title_regional, n.description, n.datepub, n.is_code, 
-                n.views, n.writer_id, nc.slug as category_slug, nc.name AS category_name, w.name AS author
+            SELECT n.*, nc.name AS category_name, nc.slug as category_slug, w.name AS author
             FROM (
-                SELECT 
-                    news.id, news.image, news.title, news.title_regional, news.description,  news.caption, 
-                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                SELECT news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
+                    news.title, news.title_regional, news.description, news.is_code, news.views, news.caption
                 FROM news
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1
+                AND (
+                    news.cat_id IN (SELECT id_kanal FROM network_kanal WHERE id_network = ?)
+                    OR 
+                    news.fokus_id IN (SELECT id_fokus FROM network_fokus WHERE id_network = ?)
+                )
                 ORDER BY news.datepub DESC
                 LIMIT ? OFFSET ?
             ) AS n
             INNER JOIN news_cat nc ON nc.id = n.cat_id
             INNER JOIN writers w ON w.id = n.writer_id
-        `, [networkId, limit, offset]);
+        `, [networkId, networkId, networkId, limit, offset]);
+
+        // 2. Logic Fallback: Jika hasil kosong, tampilkan semua berita dari network tersebut
+        if (result.length === 0) {
+            result = await this.repo.query(`
+                SELECT 
+                    n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, n.description, n.datepub, n.is_code, 
+                    n.views, n.writer_id, nc.slug as category_slug, nc.name AS category_name, w.name AS author
+                FROM (
+                    SELECT 
+                        news.id, news.image, news.title, news.title_regional, news.description,  news.caption, 
+                        news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                    FROM news
+                    INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
+                    WHERE news.status = 1
+                    ORDER BY news.datepub DESC
+                    LIMIT ? OFFSET ?
+                ) AS n
+                INNER JOIN news_cat nc ON nc.id = n.cat_id
+                INNER JOIN writers w ON w.id = n.writer_id
+            `, [networkId, limit, offset]);
         }
 
         // 3. Inject networkSlug dan Transform ke DTO
@@ -67,10 +73,11 @@ export class NewsService {
             excludeExtraneousValues: true,
         });
 
-
+        // 4. SIMPAN KE CACHE
+        // Simpan hasil finalData selama 2 menit (120000 ms)
+        await this.cacheManager.set(cacheKey, finalData, 120000);
 
         return finalData;
-
     }
 
     async findHeadline(page: number, limit: number, networkId: number) {
