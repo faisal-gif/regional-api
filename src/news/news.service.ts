@@ -18,53 +18,47 @@ export class NewsService {
         if (cachedData) return cachedData;
 
         const offset = (page - 1) * limit;
+        const dateNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const yearStart = `2024-01-01 00:00:00`; // Sesuaikan dengan config CI4 anda
 
-        // QUERY OPTIMIZED UNTUK MYISAM
-        // Menghindari subquery, menggunakan JOIN langsung yang lebih ringan untuk table-locking
+        // 1. Ambil daftar ID kanal & fokus terlebih dahulu (Sangat Cepat)
+        const kanalIds = await this.repo.query(`SELECT id_kanal FROM network_kanal WHERE id_network = ?`, [networkId]);
+        const fokusIds = await this.repo.query(`SELECT id_fokus FROM network_fokus WHERE id_network = ?`, [networkId]);
+
+        const strKanalIds = kanalIds.map(i => i.id_kanal).join(',') || '0';
+        const strFokusIds = fokusIds.map(i => i.id_fokus).join(',') || '0';
+
+        // 2. Gunakan Query Tunggal tanpa JOIN berlebihan (Tiru gaya CI4)
+        // Kita gunakan UNION untuk memisahkan logika OR agar index tetap terpakai
         const result = await this.repo.query(`
-        SELECT 
-            news.id, news.is_code, news.image, news.caption, news.title, 
-            news.title_regional, news.datepub, news.views, 
-            nc.name AS category_name, nc.slug as category_slug, 
-            w.name AS author
-        FROM news
-        INNER JOIN news_network nn ON nn.news_id = news.id
-        LEFT JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
-        LEFT JOIN network_fokus nf ON nf.id_fokus = news.fokus_id AND nf.id_network = ?
-        INNER JOIN news_cat nc ON nc.id = news.cat_id
-        INNER JOIN writers w ON w.id = news.writer_id
-        WHERE nn.net_id = ? 
-          AND news.status = 1
-          AND (nk.id_kanal IS NOT NULL OR nf.id_fokus IS NOT NULL)
-        ORDER BY news.datepub DESC
+        SELECT * FROM news 
+        WHERE id IN (
+            SELECT news_id FROM (
+                (SELECT news_id FROM news_network WHERE net_id = ? AND status = 1)
+            ) as tmp
+        )
+        AND (cat_id IN (${strKanalIds}) OR fokus_id IN (${strFokusIds}))
+        AND datepub BETWEEN ? AND ?
+        AND status = 1 
+        ORDER BY datepub DESC 
         LIMIT ? OFFSET ?
-    `, [networkId, networkId, networkId, limit, offset]);
+    `, [networkId, yearStart, dateNow, limit, offset]);
 
-        // FALLBACK: Jika tidak ada berita di kanal/fokus network tersebut
+        // 3. Fallback jika filter kosong (Persis logika CI4 Anda)
         let finalResult = result;
         if (result.length === 0) {
             finalResult = await this.repo.query(`
-            SELECT 
-                news.id, news.is_code, news.image, news.caption, news.title, 
-                news.title_regional, news.datepub, news.views, 
-                nc.name AS category_name, nc.slug as category_slug, 
-                w.name AS author
-            FROM news
-            INNER JOIN news_network nn ON nn.news_id = news.id
-            INNER JOIN news_cat nc ON nc.id = news.cat_id
-            INNER JOIN writers w ON w.id = news.writer_id
-            WHERE nn.net_id = ? AND news.status = 1
-            ORDER BY news.datepub DESC
+            SELECT * FROM news 
+            WHERE id IN (SELECT news_id FROM news_network WHERE net_id = ?) 
+            AND datepub BETWEEN ? AND ? 
+            AND status = 1 
+            ORDER BY datepub DESC 
             LIMIT ? OFFSET ?
-        `, [networkId, limit, offset]);
+        `, [networkId, yearStart, dateNow, limit, offset]);
         }
 
         const finalData = plainToInstance(NewsDto, finalResult, { excludeExtraneousValues: true });
-
-        // Jitter TTL agar tidak membebani MyISAM secara serentak
-        const ttl = 120000 + Math.floor(Math.random() * 60000);
-        await this.cacheManager.set(cacheKey, finalData, ttl);
-
+        await this.cacheManager.set(cacheKey, finalData, 120000);
         return finalData;
     }
 
