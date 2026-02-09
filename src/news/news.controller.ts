@@ -91,8 +91,8 @@ export class NewsController {
 
   @Get('/search/:query')
   async search(@Param('query') query: string, @Query('page') page = 1, @Query('limit') limit = 10, @Query('networkId') networkId = 2) {
-    const data = this.service.search(query, +page, +limit, +networkId);
-    
+    const data = await this.service.search(query, +page, +limit, +networkId);
+
     return {
       success: true,
       data,
