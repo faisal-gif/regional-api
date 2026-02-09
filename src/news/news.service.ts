@@ -19,43 +19,51 @@ export class NewsService {
 
         const offset = (page - 1) * limit;
         const dateNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        const yearStart = `2024-01-01 00:00:00`; // Sesuaikan dengan config CI4 anda
+        const yearStart = `2024-01-01 00:00:00`;
 
-        // 1. Ambil daftar ID kanal & fokus terlebih dahulu (Sangat Cepat)
-        const kanalIds = await this.repo.query(`SELECT id_kanal FROM network_kanal WHERE id_network = ?`, [networkId]);
-        const fokusIds = await this.repo.query(`SELECT id_fokus FROM network_fokus WHERE id_network = ?`, [networkId]);
+        // 1. Ambil ID kanal & fokus
+        const kanalIdsResult = await this.repo.query(`SELECT id_kanal FROM network_kanal WHERE id_network = ?`, [networkId]);
+        const fokusIdsResult = await this.repo.query(`SELECT id_fokus FROM network_fokus WHERE id_network = ?`, [networkId]);
 
-        const strKanalIds = kanalIds.map(i => i.id_kanal).join(',') || '0';
-        const strFokusIds = fokusIds.map(i => i.id_fokus).join(',') || '0';
+        const strKanalIds = kanalIdsResult.map(i => i.id_kanal).join(',');
+        const strFokusIds = fokusIdsResult.map(i => i.id_fokus).join(',');
 
-        // 2. Gunakan Query Tunggal tanpa JOIN berlebihan (Tiru gaya CI4)
-        // Kita gunakan UNION untuk memisahkan logika OR agar index tetap terpakai
+        // 2. Bangun kondisi filter kanal/fokus jika ada
+        let filterNetwork = '';
+        if (strKanalIds || strFokusIds) {
+            const conditions: string[] = [];
+            if (strKanalIds) conditions.push(`cat_id IN (${strKanalIds})`);
+            if (strFokusIds) conditions.push(`fokus_id IN (${strFokusIds})`);;
+            filterNetwork = `AND (${conditions.join(' OR ')})`;
+        }
+
+        // 3. Jalankan query (status dipindah ke tabel news)
         const result = await this.repo.query(`
         SELECT * FROM news 
         WHERE id IN (
-            SELECT news_id FROM (
-                (SELECT news_id FROM news_network WHERE net_id = ? AND status = 1)
-            ) as tmp
+            SELECT news_id FROM news_network WHERE net_id = ?
         )
-        AND (cat_id IN (${strKanalIds}) OR fokus_id IN (${strFokusIds}))
-        AND datepub BETWEEN ? AND ?
+        ${filterNetwork}
         AND status = 1 
+        AND datepub BETWEEN ? AND ?
         ORDER BY datepub DESC 
         LIMIT ? OFFSET ?
     `, [networkId, yearStart, dateNow, limit, offset]);
 
-        // 3. Fallback jika filter kosong (Persis logika CI4 Anda)
+        // 4. Fallback jika filter network kosong (Tampilan berita umum network)
         let finalResult = result;
-        if (result.length === 0) {
+        if (result.length === 0 && filterNetwork !== '') {
             finalResult = await this.repo.query(`
             SELECT * FROM news 
             WHERE id IN (SELECT news_id FROM news_network WHERE net_id = ?) 
+            AND status = 1
             AND datepub BETWEEN ? AND ? 
-            AND status = 1 
             ORDER BY datepub DESC 
             LIMIT ? OFFSET ?
         `, [networkId, yearStart, dateNow, limit, offset]);
         }
+
+        if (!finalResult || finalResult.length === 0) return [];
 
         const finalData = plainToInstance(NewsDto, finalResult, { excludeExtraneousValues: true });
         await this.cacheManager.set(cacheKey, finalData, 120000);
