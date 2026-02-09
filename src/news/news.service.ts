@@ -13,71 +13,52 @@ export class NewsService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache) { }
 
     async findAll(page: number, limit: number, networkId: number) {
-        // 1. Buat Cache Key Unik (berdasarkan network, page, dan limit)
         const cacheKey = `news_all_net${networkId}_p${page}_l${limit}`;
-
-        // 2. Cek apakah data ada di Cache
         const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
         if (cachedData) return cachedData;
 
-        // --- Mulai Logika Database (Jika Cache Miss) ---
         const offset = (page - 1) * limit;
+        const dateNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const yearStart = `2024-01-01 00:00:00`; // Sesuaikan dengan config CI4 anda
 
-        let result = await this.repo.query(`
-            SELECT n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, 
-            n.description, n.datepub, n.views, nc.name AS category_name, nc.slug as category_slug, w.name AS author
-            FROM (
-                SELECT news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
-                    news.title, news.title_regional, news.description, news.is_code, news.views, news.caption
-                FROM news
-                INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-                WHERE news.status = 1
-                AND (
-                    news.cat_id IN (SELECT id_kanal FROM network_kanal WHERE id_network = ?)
-                    OR 
-                    news.fokus_id IN (SELECT id_fokus FROM network_fokus WHERE id_network = ?)
-                )
-                ORDER BY news.datepub DESC
-                LIMIT ? OFFSET ?
-            ) AS n
-            INNER JOIN news_cat nc ON nc.id = n.cat_id
-            INNER JOIN writers w ON w.id = n.writer_id
-        `, [networkId, networkId, networkId, limit, offset]);
+        // 1. Ambil daftar ID kanal & fokus terlebih dahulu (Sangat Cepat)
+        const kanalIds = await this.repo.query(`SELECT id_kanal FROM network_kanal WHERE id_network = ?`, [networkId]);
+        const fokusIds = await this.repo.query(`SELECT id_fokus FROM network_fokus WHERE id_network = ?`, [networkId]);
 
-        // 2. Logic Fallback: Jika hasil kosong, tampilkan semua berita dari network tersebut
+        const strKanalIds = kanalIds.map(i => i.id_kanal).join(',') || '0';
+        const strFokusIds = fokusIds.map(i => i.id_fokus).join(',') || '0';
+
+        // 2. Gunakan Query Tunggal tanpa JOIN berlebihan (Tiru gaya CI4)
+        // Kita gunakan UNION untuk memisahkan logika OR agar index tetap terpakai
+        const result = await this.repo.query(`
+        SELECT * FROM news 
+        WHERE id IN (
+            SELECT news_id FROM (
+                (SELECT news_id FROM news_network WHERE net_id = ? AND status = 1)
+            ) as tmp
+        )
+        AND (cat_id IN (${strKanalIds}) OR fokus_id IN (${strFokusIds}))
+        AND datepub BETWEEN ? AND ?
+        AND status = 1 
+        ORDER BY datepub DESC 
+        LIMIT ? OFFSET ?
+    `, [networkId, yearStart, dateNow, limit, offset]);
+
+        // 3. Fallback jika filter kosong (Persis logika CI4 Anda)
+        let finalResult = result;
         if (result.length === 0) {
-            result = await this.repo.query(`
-                SELECT 
-                    n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, n.description, n.datepub, n.is_code, 
-                    n.views, n.writer_id, nc.slug as category_slug, nc.name AS category_name, w.name AS author
-                FROM (
-                    SELECT 
-                        news.id, news.image, news.title, news.title_regional, news.description,  news.caption, 
-                        news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
-                    FROM news
-                    INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-                    WHERE news.status = 1
-                    ORDER BY news.datepub DESC
-                    LIMIT ? OFFSET ?
-                ) AS n
-                INNER JOIN news_cat nc ON nc.id = n.cat_id
-                INNER JOIN writers w ON w.id = n.writer_id
-            `, [networkId, limit, offset]);
+            finalResult = await this.repo.query(`
+            SELECT * FROM news 
+            WHERE id IN (SELECT news_id FROM news_network WHERE net_id = ?) 
+            AND datepub BETWEEN ? AND ? 
+            AND status = 1 
+            ORDER BY datepub DESC 
+            LIMIT ? OFFSET ?
+        `, [networkId, yearStart, dateNow, limit, offset]);
         }
 
-        // 3. Inject networkSlug dan Transform ke DTO
-        const enrichedData = result.map((item) => ({
-            ...item
-        }));
-
-        const finalData = plainToInstance(NewsDto, enrichedData, {
-            excludeExtraneousValues: true,
-        });
-
-        // 4. SIMPAN KE CACHE
-        // Simpan hasil finalData selama 2 menit (120000 ms)
+        const finalData = plainToInstance(NewsDto, finalResult, { excludeExtraneousValues: true });
         await this.cacheManager.set(cacheKey, finalData, 120000);
-
         return finalData;
     }
 
