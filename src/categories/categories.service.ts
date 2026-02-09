@@ -84,14 +84,14 @@ export class CategoryService {
                     w.name AS author
                 FROM (
                     SELECT 
-                        news.id, news.image, news.title, news.title_regional, news.description, 
-                        news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                        news.id
                     FROM news
                     INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                     WHERE news.status = 1 AND news.cat_id = ?
                     ORDER BY news.datepub DESC
                     LIMIT 10
-                ) AS n
+                ) AS fast_search
+                INNER JOIN news n ON n.id = fast_search.id
                 INNER JOIN news_cat nc ON nc.id = n.cat_id
                 INNER JOIN writers w ON w.id = n.writer_id
             `, [networkId, cat.id]);
