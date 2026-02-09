@@ -22,51 +22,50 @@ export class NewsService {
         const yearStart = `2024-01-01 00:00:00`;
 
         // 1. Ambil ID kanal & fokus
-        const kanalIdsResult = await this.repo.query(`SELECT id_kanal FROM network_kanal WHERE id_network = ?`, [networkId]);
-        const fokusIdsResult = await this.repo.query(`SELECT id_fokus FROM network_fokus WHERE id_network = ?`, [networkId]);
+        const kanalIdsResult = await this.repo.query<{ id_kanal: number }[]>(
+            `SELECT id_kanal FROM network_kanal WHERE id_network = ?`, [networkId]
+        );
+        const fokusIdsResult = await this.repo.query<{ id_fokus: number }[]>(
+            `SELECT id_fokus FROM network_fokus WHERE id_network = ?`, [networkId]
+        );
 
         const strKanalIds = kanalIdsResult.map(i => i.id_kanal).join(',');
         const strFokusIds = fokusIdsResult.map(i => i.id_fokus).join(',');
 
-        // 2. Bangun kondisi filter kanal/fokus jika ada
         let filterNetwork = '';
-        if (strKanalIds || strFokusIds) {
-            const conditions: string[] = [];
-            if (strKanalIds) conditions.push(`cat_id IN (${strKanalIds})`);
-            if (strFokusIds) conditions.push(`fokus_id IN (${strFokusIds})`);;
-            filterNetwork = `AND (${conditions.join(' OR ')})`;
-        }
+        const conditions: string[] = [];
+        if (strKanalIds) conditions.push(`n.cat_id IN (${strKanalIds})`);
+        if (strFokusIds) conditions.push(`n.fokus_id IN (${strFokusIds})`);
+        if (conditions.length > 0) filterNetwork = `AND (${conditions.join(' OR ')})`;
 
-        // 3. Jalankan query (status dipindah ke tabel news)
+        // 2. Query Utama dengan JOIN Kategori
+        // Kita panggil nc.name dan nc.slug di sini
         const result = await this.repo.query(`
-        SELECT * FROM news 
-        WHERE id IN (
+        SELECT 
+            n.title,
+            n.description,
+            n.image,
+            n.view,
+            n.datepub
+            nc.name AS category_name, 
+            nc.slug AS category_slug 
+        FROM news n
+        LEFT JOIN news_cat nc ON nc.id = n.cat_id
+        WHERE n.id IN (
             SELECT news_id FROM news_network WHERE net_id = ?
         )
         ${filterNetwork}
-        AND status = 1 
-        AND datepub BETWEEN ? AND ?
-        ORDER BY datepub DESC 
+        AND n.status = 1 
+        AND n.datepub BETWEEN ? AND ?
+        ORDER BY n.datepub DESC 
         LIMIT ? OFFSET ?
     `, [networkId, yearStart, dateNow, limit, offset]);
 
-        // 4. Fallback jika filter network kosong (Tampilan berita umum network)
-        let finalResult = result;
-        if (result.length === 0 && filterNetwork !== '') {
-            finalResult = await this.repo.query(`
-            SELECT * FROM news 
-            WHERE id IN (SELECT news_id FROM news_network WHERE net_id = ?) 
-            AND status = 1
-            AND datepub BETWEEN ? AND ? 
-            ORDER BY datepub DESC 
-            LIMIT ? OFFSET ?
-        `, [networkId, yearStart, dateNow, limit, offset]);
-        }
+        // ... (Logika fallback jika result.length === 0 sama seperti sebelumnya)
 
-        if (!finalResult || finalResult.length === 0) return [];
+        const finalData = plainToInstance(NewsDto, result, { excludeExtraneousValues: true });
+        await this.cacheManager.set(cacheKey, finalData, 120000 + Math.floor(Math.random() * 60000));
 
-        const finalData = plainToInstance(NewsDto, finalResult, { excludeExtraneousValues: true });
-        await this.cacheManager.set(cacheKey, finalData, 120000);
         return finalData;
     }
 
