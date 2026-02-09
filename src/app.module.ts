@@ -40,7 +40,7 @@ import { CacheModule } from '@nestjs/cache-manager';
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
       extra: {
-        connectionLimit: 10,       // Jumlah maksimal koneksi yang dibuka serentak
+        connectionLimit: 50,       // Jumlah maksimal koneksi yang dibuka serentak
         waitForConnections: true,  // Jika pool penuh, request akan antre (bukan error)
         queueLimit: 0,             // Tidak ada batas antrean
         idleTimeout: 60000,        // Tutup koneksi jika idle selama 60 detik
