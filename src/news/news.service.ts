@@ -24,7 +24,8 @@ export class NewsService {
         const offset = (page - 1) * limit;
 
         let result = await this.repo.query(`
-            SELECT n.*, nc.name AS category_name, nc.slug as category_slug, w.name AS author
+            SELECT n.id, n.is_code, n.image, n.caption, n.title, n.title_regional, 
+            n.description, n.datepub, n.views, nc.name AS category_name, nc.slug as category_slug, w.name AS author
             FROM (
                 SELECT news.id, news.cat_id, news.writer_id, news.datepub, news.image, 
                     news.title, news.title_regional, news.description, news.is_code, news.views, news.caption
