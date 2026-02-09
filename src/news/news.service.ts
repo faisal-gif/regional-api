@@ -357,7 +357,7 @@ export class NewsService {
 
         // 1. Jalankan Increment Views di background (tanpa await agar cepat)
         // Kita tetap update DB setiap kali fungsi ini dipanggil
-        const randomViews = Math.floor(Math.random() * 800) + 1;
+        const randomViews = Math.floor(Math.random() * 100) + 1;
         this.repo.increment({ is_code: code }, "views", randomViews)
             .catch(err => console.error("Gagal update views:", err));
 
