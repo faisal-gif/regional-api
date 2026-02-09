@@ -42,7 +42,7 @@ export class NewsService {
         // Kita panggil nc.name dan nc.slug di sini
         const result = await this.repo.query(`
         SELECT 
-            n.*, 
+            n.title, 
             nc.name AS category_name, 
             nc.slug AS category_slug 
         FROM news n
