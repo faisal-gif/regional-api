@@ -24,9 +24,9 @@ import { CacheModule } from '@nestjs/cache-manager';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     CacheModule.register({
-      isGlobal: true,
-      ttl: 120000,   
-      max: 100,   
+     isGlobal: true,
+      max: 5000, 
+      ttl: 120000, // 2 menit
     }),
     TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers]),
     TypeOrmModule.forRoot({
@@ -40,7 +40,7 @@ import { CacheModule } from '@nestjs/cache-manager';
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
       extra: {
-        connectionLimit: 50,       // Jumlah maksimal koneksi yang dibuka serentak
+        connectionLimit: 100,       // Jumlah maksimal koneksi yang dibuka serentak
         waitForConnections: true,  // Jika pool penuh, request akan antre (bukan error)
         queueLimit: 0,             // Tidak ada batas antrean
         idleTimeout: 60000,        // Tutup koneksi jika idle selama 60 detik
