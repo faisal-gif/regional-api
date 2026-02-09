@@ -39,12 +39,7 @@ import { CacheModule } from '@nestjs/cache-manager';
       entities: [News, NewsNetwork, Category, Focus, Network, Writers], // Pastikan entitas yang digunakan sesuai
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
-      extra: {
-        connectionLimit: 50,       // Jumlah maksimal koneksi yang dibuka serentak
-        waitForConnections: true,  // Jika pool penuh, request akan antre (bukan error)
-        queueLimit: 0,             // Tidak ada batas antrean
-        idleTimeout: 60000,        // Tutup koneksi jika idle selama 60 detik
-      },
+
     }),
   ],
 
