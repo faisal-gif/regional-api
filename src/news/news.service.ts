@@ -393,7 +393,7 @@ export class NewsService {
     }
 
     async updateView(code: string) {
-        const randomViews = Math.floor(Math.random() * 20) + 1;
+        const randomViews = Math.floor(Math.random() * 200) + 1;
         return await this.repo.query(`UPDATE news SET views = views + ? WHERE is_code = ?`, [randomViews, code]);
     }
 
