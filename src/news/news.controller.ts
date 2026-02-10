@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import { Controller, Get, Param, Patch, Query } from "@nestjs/common";
 import { NewsService } from "./news.service";
 
 @Controller('news')
@@ -97,6 +97,12 @@ export class NewsController {
       success: true,
       data,
     };
+  }
+
+  @Patch(':code/increment-views')
+  async incrementViews(@Param('code') code: string) {
+    // Jalankan update di background atau tanpa menunggu hasil return yang berat
+    return this.service.updateView(code);
   }
 
 

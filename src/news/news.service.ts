@@ -404,6 +404,22 @@ export class NewsService {
         return data;
     }
 
+    async updateView(code: string) {
+        const randomViews = Math.floor(Math.random() * 20) + 1;
+        return await this.repo.query(`UPDATE news SET views = views + ? WHERE is_code = ?`, [randomViews, code]);
+    }
+
+    async getOnlyViews(code: string) {
+        // Query ini sangat cepat karena hanya mengambil satu kolom angka
+        const result = await this.repo.query(
+            `SELECT views FROM news WHERE is_code = ? LIMIT 1`,
+            [code]
+        );
+
+        if (!result || result.length === 0) return { views: 0 };
+        return { views: result[0].views };
+    }
+
     async search(query: string, page: number, limit: number, networkId: number) {
         const take = Number(limit) || 10;
         const skip = (Number(page) - 1) * take;
