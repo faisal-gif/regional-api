@@ -99,7 +99,7 @@ export class NewsController {
     };
   }
 
-  @Patch(':code/increment-views')
+  @Patch('increment-views/:code')
   async incrementViews(@Param('code') code: string) {
     // Jalankan update di background atau tanpa menunggu hasil return yang berat
     return this.service.updateView(code);
