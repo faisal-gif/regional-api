@@ -105,5 +105,10 @@ export class NewsController {
     return this.service.updateView(code);
   }
 
+  @Get('/:code/views')
+  async getLatestViews(@Param('code') code: string) {
+    return this.service.getOnlyViews(code);
+  }
+
 
 }
