@@ -52,10 +52,10 @@ export class NewsService {
         )
         ${filterNetwork}
         AND n.status = 1 
-        AND n.datepub BETWEEN ? AND ?
+        AND n.datepub BETWEEN ? AND NOW()
         ORDER BY n.datepub DESC 
         LIMIT ? OFFSET ?
-    `, [networkId, yearStart, dateNow, limit, offset]);
+    `, [networkId, yearStart, limit, offset]);
 
         // ... (Logika fallback jika result.length === 0 sama seperti sebelumnya)
 
