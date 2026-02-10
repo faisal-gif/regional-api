@@ -210,49 +210,49 @@ export class NewsService {
         networkId: number,
         categoryId: number
     ) {
-
         const cacheKey = `news_by_cat_net${networkId}_p${page}_l${limit}_cat${categoryId}`;
-        const cachedData = await this.cacheManager.get<NewsDto[]>(cacheKey);
+        const cachedData = await this.cacheManager.get<any>(cacheKey);
         if (cachedData) return cachedData;
 
         const offset = (page - 1) * limit;
-        let result = [];
-        let total = 0;
 
-        // --- SKENARIO 1: Cari berdasarkan Network DAN Kategori ---
+        // 1. COUNT yang lebih ringan. 
+        // Gunakan JOIN yang lebih simpel atau pastikan index ada pada (net_id, news_id)
         const countResult = await this.repo.query(`
-        SELECT COUNT(news.id) as total 
-        FROM news 
-        INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-        WHERE news.status = 1 AND news.cat_id = ?
+        SELECT COUNT(*) as total 
+        FROM news_network nn
+        INNER JOIN news n ON n.id = nn.news_id
+        WHERE nn.net_id = ? AND n.cat_id = ? AND n.status = 1
     `, [networkId, categoryId]);
 
-        total = parseInt(countResult[0].total);
+        const total = parseInt(countResult[0].total);
+        let result = [];
 
         if (total > 0) {
+            // 2. Gunakan "Late Row Lookups"
+            // Kita ambil ID-nya dulu yang terfilter, baru JOIN ke tabel master (writers, cat) 
+            // Ini mengurangi beban memori MyISAM saat sorting
             result = await this.repo.query(`
             SELECT 
-                n.id, n.is_code, n.image, n.title, n.title_regional, n.description, n.datepub, 
-                n.views, n.writer_id, nc.name AS category_name, 
-                nc.slug AS category_slug, w.name AS author
+                n.id, n.is_code, n.image, n.title, n.title_regional, 
+                n.description, n.datepub, n.views, n.writer_id,
+                nc.name AS category_name, nc.slug AS category_slug, 
+                w.name AS author
             FROM (
-                SELECT 
-                    news.id, news.image, news.title, news.title_regional, news.description, 
-                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
+                SELECT news.id
                 FROM news
-                INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-                WHERE news.status = 1 AND news.cat_id = ?
+                INNER JOIN news_network nn ON nn.news_id = news.id
+                WHERE nn.net_id = ? AND news.cat_id = ? AND news.status = 1
                 ORDER BY news.datepub DESC
                 LIMIT ? OFFSET ?
-            ) AS n
-            INNER JOIN news_cat nc ON nc.id = n.cat_id
-            INNER JOIN writers w ON w.id = n.writer_id
+            ) AS ids
+            INNER JOIN news n ON n.id = ids.id
+            LEFT JOIN news_cat nc ON nc.id = n.cat_id
+            LEFT JOIN writers w ON w.id = n.writer_id
+            ORDER BY n.datepub DESC
         `, [networkId, categoryId, limit, offset]);
         }
 
-
-
-        // --- TRANSFORM & WRAP RESPONSE ---
         const data = plainToInstance(NewsDto, result, {
             excludeExtraneousValues: true,
         });
@@ -267,9 +267,7 @@ export class NewsService {
             }
         };
 
-        // 3. SIMPAN KE CACHE (120000 ms = 2 menit)
         await this.cacheManager.set(cacheKey, finalResponse, 120000);
-
         return finalResponse;
     }
 
@@ -279,51 +277,49 @@ export class NewsService {
         networkId: number,
         fokusId: number
     ) {
-        // 1. Update Cache Key agar spesifik untuk Fokus
         const cacheKey = `news_by_fokus_net${networkId}_p${page}_l${limit}_fok${fokusId}`;
         const cachedData = await this.cacheManager.get<any>(cacheKey);
         if (cachedData) return cachedData;
 
         const offset = (page - 1) * limit;
         let result = [];
-        let total = 0;
 
-        // --- SKENARIO: Cari berdasarkan Network DAN Fokus ---
+        // 1. COUNT: Mulai dari tabel junction (news_network) yang biasanya lebih kecil
         const countResult = await this.repo.query(`
-        SELECT COUNT(news.id) as total 
-        FROM news 
-        INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-        WHERE news.status = 1 AND news.fokus_id = ?
+        SELECT COUNT(*) as total 
+        FROM news_network nn
+        INNER JOIN news n ON n.id = nn.news_id
+        WHERE nn.net_id = ? AND n.fokus_id = ? AND n.status = 1
     `, [networkId, fokusId]);
 
-        total = parseInt(countResult[0].total);
+        const total = parseInt(countResult[0].total);
 
         if (total > 0) {
+            // 2. DATA QUERY: Teknik "Late Lookups"
+            // Ambil ID berita saja di subquery, baru JOIN ke tabel referensi
             result = await this.repo.query(`
             SELECT 
-                n.id, n.is_code, n.image, n.title, n.title_regional, n.description, n.datepub, 
-                n.views, n.writer_id, 
-                nc.name AS category_name,   
-                nc.slug AS category_slug,
-                nf.name AS fokus_name,   
+                n.id, n.is_code, n.image, n.title, n.title_regional, 
+                n.description, n.datepub, n.views, n.writer_id,
+                nc.name AS category_name, nc.slug AS category_slug,
+                nf.name AS fokus_name,
                 w.name AS author
             FROM (
-                SELECT 
-                    news.id, news.image, news.title, news.title_regional, news.description, 
-                    news.datepub, news.is_code, news.views, news.cat_id, news.writer_id, news.fokus_id
+                SELECT news.id
                 FROM news
-                INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-                WHERE news.status = 1 AND news.fokus_id = ?
+                INNER JOIN news_network nn ON nn.news_id = news.id
+                WHERE nn.net_id = ? AND news.fokus_id = ? AND news.status = 1
                 ORDER BY news.datepub DESC
                 LIMIT ? OFFSET ?
-            ) AS n
-            INNER JOIN news_cat nc ON nc.id = n.cat_id 
-            INNER JOIN news_fokus nf ON nf.id = n.fokus_id
-            INNER JOIN writers w ON w.id = n.writer_id
+            ) AS ids
+            INNER JOIN news n ON n.id = ids.id
+            LEFT JOIN news_cat nc ON nc.id = n.cat_id 
+            LEFT JOIN news_fokus nf ON nf.id = n.fokus_id
+            LEFT JOIN writers w ON w.id = n.writer_id
+            ORDER BY n.datepub DESC
         `, [networkId, fokusId, limit, offset]);
         }
 
-        // --- TRANSFORM & WRAP RESPONSE ---
         const data = plainToInstance(NewsDto, result, {
             excludeExtraneousValues: true,
         });
@@ -338,9 +334,7 @@ export class NewsService {
             }
         };
 
-        // SIMPAN KE CACHE
         await this.cacheManager.set(cacheKey, finalResponse, 120000);
-
         return finalResponse;
     }
 
