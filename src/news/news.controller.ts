@@ -19,7 +19,6 @@ export class NewsController {
     };
   }
 
-
   @Get('/headline')
   async findHeadline(
     @Query('page') page = 1,

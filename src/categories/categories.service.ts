@@ -24,17 +24,6 @@ export class CategoryService {
 
         let result = await this.repo.query(queryMain, [networkSlug, limit]);
 
-        if (result.length === 0) {
-            const queryFallback = `
-            SELECT id, slug, name, description, status, parent_kanal 
-            FROM news_cat
-            WHERE status = '1'
-            ORDER BY parent_kanal ASC, name ASC
-            LIMIT ?
-        `;
-            result = await this.repo.query(queryFallback, [limit]);
-        }
-
         // Penambahan networkSlug ke tiap item
         const enrichedData = result.map((item) => ({
             ...item,
