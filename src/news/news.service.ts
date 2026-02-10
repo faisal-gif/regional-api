@@ -60,7 +60,8 @@ export class NewsService {
         // ... (Logika fallback jika result.length === 0 sama seperti sebelumnya)
 
         const finalData = plainToInstance(NewsDto, result, { excludeExtraneousValues: true });
-        await this.cacheManager.set(cacheKey, finalData, 120000 + Math.floor(Math.random() * 60000));
+        const ttl = page === 1 ? 30000 : 120000;
+        await this.cacheManager.set(cacheKey, finalData, ttl);
 
         return finalData;
     }
