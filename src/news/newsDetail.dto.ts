@@ -32,6 +32,10 @@ export class NewsDetailDto {
     editor_name: string;
 
     @Expose()
+    @Transform(({ obj }) => obj.publisher?.name)
+    publisher_name: string;
+
+    @Expose()
     @Transform(({ obj }) => obj.category?.id)
     category_id: string;
 
