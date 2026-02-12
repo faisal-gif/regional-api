@@ -354,12 +354,10 @@ export class NewsService {
                 n.views, n.datepub, n.locus,
                 w.name AS writer_name,
                 e.name AS editor_name,
-                p.full_name AS publisher_name,
                 nc.id AS category_id, nc.name AS category_name, nc.slug AS category_slug
             FROM news n
             LEFT JOIN writers w ON w.id = n.writer_id
             LEFT JOIN editors e ON e.id = n.editor_id
-            LEFT JOIN users p ON p.id = n.modified_by
             LEFT JOIN news_cat nc ON nc.id = n.cat_id
             WHERE n.is_code = ? AND n.status = 1
             LIMIT 1
@@ -380,9 +378,6 @@ export class NewsService {
             },
             editor: {
                 name: rawRow.editor_name
-            },
-            publisher: {
-                name: rawRow.publisher_name
             },
             category: {
                 id: rawRow.category_id,
