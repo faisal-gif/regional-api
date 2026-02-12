@@ -28,12 +28,17 @@ export class NewsDetailDto {
     writer_name: string;
 
     @Expose()
+    @Transform(({ obj }) => obj.editor?.name)
+    editor_name: string;
+
+    @Expose()
     @Transform(({ obj }) => obj.category?.id)
     category_id: string;
 
     @Expose()
     @Transform(({ obj }) => obj.category?.name)
     category_name: string;
+
 
     @Expose()
     @Transform(({ obj }) => obj.category?.slug)
