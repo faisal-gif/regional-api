@@ -414,14 +414,24 @@ export class NewsService {
     }
 
     async search(query: string, page: number, limit: number, networkId: number) {
-        const take = Number(limit) || 10;
-        const skip = (Number(page) - 1) * take;
-        const searchTerm = `%${query.trim()}%`;
-
         if (!query) return { data: [], meta: { total: 0, page, limit, lastPage: 0 } };
 
+        const take = Number(limit) || 10;
+        const skip = (Number(page) - 1) * take;
+        const normalizedQuery = query.trim().toLowerCase(); // Normalisasi query
+
+        // 1. Buat Cache Key yang unik berdasarkan query, page, dan network
+        // Kita gunakan base64 atau slug untuk menghindari karakter aneh di key redis/memory
+        const cacheKey = `search_net${networkId}_q${Buffer.from(normalizedQuery).toString('base64')}_p${page}_l${limit}`;
+
+        // 2. Cek apakah ada di cache
+        const cachedResponse = await this.cacheManager.get(cacheKey);
+        if (cachedResponse) return cachedResponse;
+
+        const searchTerm = `%${normalizedQuery}%`;
+
         try {
-            // 2. Hitung Total untuk Pagination Meta
+            // 3. Hitung Total
             const countResult = await this.repo.query(`
             SELECT COUNT(n.id) as total 
             FROM news n
@@ -434,7 +444,6 @@ export class NewsService {
             const total = parseInt(countResult[0].total);
             let result = [];
 
-            // 3. Ambil Data jika total > 0
             if (total > 0) {
                 result = await this.repo.query(`
                 SELECT 
@@ -456,7 +465,6 @@ export class NewsService {
             `, [Number(networkId), searchTerm, take, skip]);
             }
 
-            // 4. Transform & Wrap Response
             const data = plainToInstance(NewsDto, result, {
                 excludeExtraneousValues: true,
             });
@@ -471,11 +479,15 @@ export class NewsService {
                 }
             };
 
+            // 4. Simpan ke Cache
+            // Untuk search, kita bisa pasang TTL lebih lama (misal 5-10 menit)
+            // karena hasil pencarian berita lama tidak berubah secepat berita terbaru.
+            await this.cacheManager.set(cacheKey, finalResponse, 600000); // 10 Menit
 
             return finalResponse;
 
         } catch (error) {
-            console.error("SQL Error:", error);
+            console.error("SQL Error di Search:", error);
             return { data: [], meta: { total: 0, page, limit, lastPage: 0 } };
         }
     }
