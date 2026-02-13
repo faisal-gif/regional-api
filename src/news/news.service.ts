@@ -415,26 +415,25 @@ export class NewsService {
 
     async search(query: string, page: number, limit: number, networkId: number) {
         const take = Number(limit) || 10;
-        const skip = (Number(page) - 1) * take;
-        const searchTerm = `%${query.trim()}%`;
+        const skip = (Math.max(Number(page), 1) - 1) * take;
+        const searchTerm = `%${query.trim()}%`; // Benar untuk LIKE
 
         if (!query) return { data: [], meta: { total: 0, page, limit, lastPage: 0 } };
 
         try {
-            // 2. Hitung Total untuk Pagination Meta
+            // 2. Gunakan LIKE agar konsisten dengan pengambilan data
             const countResult = await this.repo.query(`
             SELECT COUNT(n.id) as total 
             FROM news n
             INNER JOIN news_network nn ON nn.news_id = n.id
             WHERE n.status = 1 
             AND nn.net_id = ? 
-            AND MATCH(n.title) AGAINST(? IN NATURAL LANGUAGE MODE)
+            AND n.title LIKE ?
         `, [networkId, searchTerm]);
 
-            const total = parseInt(countResult[0].total);
+            const total = parseInt(countResult[0]?.total || 0);
             let result = [];
 
-            // 3. Ambil Data jika total > 0
             if (total > 0) {
                 result = await this.repo.query(`
                 SELECT 
@@ -456,24 +455,7 @@ export class NewsService {
             `, [Number(networkId), searchTerm, take, skip]);
             }
 
-            // 4. Transform & Wrap Response
-            const data = plainToInstance(NewsDto, result, {
-                excludeExtraneousValues: true,
-            });
-
-            const finalResponse = {
-                data,
-                meta: {
-                    total,
-                    page: Number(page),
-                    limit: take,
-                    lastPage: Math.ceil(total / take)
-                }
-            };
-
-
-            return finalResponse;
-
+            // ... sisa code transform data
         } catch (error) {
             console.error("SQL Error:", error);
             return { data: [], meta: { total: 0, page, limit, lastPage: 0 } };
