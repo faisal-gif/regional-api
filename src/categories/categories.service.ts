@@ -77,7 +77,7 @@ export class CategoryService {
                     FROM news
                     INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                     WHERE news.status = 1 AND news.cat_id = ?
-                    AND news.datepub >= CURDATE() AND news.datepub <= NOW()
+                    AND news.datepub <= NOW()
                     ORDER BY news.datepub DESC
                     LIMIT 10
                 ) AS fast_search

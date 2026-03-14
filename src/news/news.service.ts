@@ -86,8 +86,8 @@ export class NewsService {
                 news.datepub, news.is_code, news.views, news.cat_id, news.writer_id
             FROM news
             INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
-            WHERE news.status = 1
-            AND news.datepub >= CURDATE() AND news.datepub <= NOW() 
+            WHERE news.status = 1 
+            AND news.datepub <= NOW()
             AND news.is_headline = 1
             AND EXISTS (
                 SELECT 1 FROM network_kanal nk 
