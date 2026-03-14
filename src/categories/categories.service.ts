@@ -82,8 +82,10 @@ export class CategoryService {
                     LIMIT 10
                 ) AS fast_search
                 INNER JOIN news n ON n.id = fast_search.id
-                INNER JOIN news_cat nc ON nc.id = n.cat_id
-                INNER JOIN writers w ON w.id = n.writer_id
+                LEFT JOIN news_cat nc ON nc.id = n.cat_id
+                LEFT JOIN writers w ON w.id = n.writer_id
+
+                ORDER BY n.datepub DESC
             `, [networkId, cat.id]);
 
                 return {
