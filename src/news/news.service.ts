@@ -151,7 +151,7 @@ export class NewsService {
             INNER JOIN network_kanal nk ON nk.id_kanal = news.cat_id AND nk.id_network = ?
             WHERE news.status = 1
             ${categoryId ? 'AND news.cat_id = ?' : ''}
-            AND news.datepub >= CURDATE()
+            AND news.datepub >= CURDATE() AND news.datepub <= NOW()
             ORDER BY news.views DESC     
             LIMIT ? OFFSET ?
         ) AS n
@@ -175,7 +175,7 @@ export class NewsService {
                 INNER JOIN news_network nn ON nn.news_id = news.id AND nn.net_id = ?
                 WHERE news.status = 1
                 ${categoryId ? 'AND news.cat_id = ?' : ''}
-                AND news.datepub >= CURDATE()
+                AND news.datepub >= CURDATE() AND news.datepub <= NOW()
                 ORDER BY news.views DESC
                 LIMIT ? OFFSET ?
             ) AS n
