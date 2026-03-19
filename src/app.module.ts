@@ -17,6 +17,9 @@ import { Writers } from './writers/writers.entity';
 import { NetworkController } from './network/network.controller';
 import { NetworkService } from './network/network.services';
 import { CacheModule } from '@nestjs/cache-manager';
+import { Ads } from './ads/ads.entity';
+import { AdsController } from './ads/ads.controller';
+import { AdsService } from './ads/ads.service';
 
 
 @Module({
@@ -28,7 +31,7 @@ import { CacheModule } from '@nestjs/cache-manager';
       max: 5000, 
       ttl: 120000, // 2 menit
     }),
-    TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers]),
+    TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers,Ads]),
     TypeOrmModule.forRoot({
       type: 'mysql', // Ganti dari 'postgres' ke 'mysql'
       host: process.env.DB_HOST,
@@ -43,8 +46,8 @@ import { CacheModule } from '@nestjs/cache-manager';
     }),
   ],
 
-  controllers: [NewsController, CategoryController, FocusController, NetworkController],
-  providers: [NewsService, CategoryService, FocusService, NetworkService, {
+  controllers: [NewsController, CategoryController, FocusController, NetworkController, AdsController],
+  providers: [NewsService, CategoryService, FocusService, NetworkService, AdsService, {
     provide: 'APP_GUARD',
     useClass: ApiKeyGuard,
   }],
