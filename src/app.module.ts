@@ -44,7 +44,6 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
       entities: [News, NewsNetwork, Category, Focus, Network, Writers], // Pastikan entitas yang digunakan sesuai
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
-     
     }),
   ],
 
