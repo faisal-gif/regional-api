@@ -32,10 +32,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
       max: 5000,
       ttl: 120000, // 2 menit
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // Waktu dalam milidetik (contoh: 60000 = 1 menit)
-      limit: 10,  // Maksimal request per IP dalam rentang waktu TTL
-    }]),
+   
     TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers, Ads]),
     TypeOrmModule.forRoot({
       type: 'mysql', // Ganti dari 'postgres' ke 'mysql'
@@ -47,11 +44,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
       entities: [News, NewsNetwork, Category, Focus, Network, Writers], // Pastikan entitas yang digunakan sesuai
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
-      extra: {
-        connectionLimit: 20,
-        waitForConnections: true,
-        queueLimit: 0,
-      }
+     
     }),
   ],
 
@@ -60,10 +53,6 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     provide: 'APP_GUARD',
     useClass: ApiKeyGuard,
   },
-    {
-      provide: 'APP_GUARD',
-      useClass: ThrottlerGuard,
-    }
   ],
 })
 export class AppModule { }
