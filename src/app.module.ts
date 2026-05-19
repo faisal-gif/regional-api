@@ -20,6 +20,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { Ads } from './ads/ads.entity';
 import { AdsController } from './ads/ads.controller';
 import { AdsService } from './ads/ads.service';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 
 @Module({
@@ -27,11 +28,15 @@ import { AdsService } from './ads/ads.service';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     CacheModule.register({
-     isGlobal: true,
-      max: 5000, 
+      isGlobal: true,
+      max: 5000,
       ttl: 120000, // 2 menit
     }),
-    TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers,Ads]),
+    ThrottlerModule.forRoot([{
+      ttl: 60000, // Waktu dalam milidetik (contoh: 60000 = 1 menit)
+      limit: 10,  // Maksimal request per IP dalam rentang waktu TTL
+    }]),
+    TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers, Ads]),
     TypeOrmModule.forRoot({
       type: 'mysql', // Ganti dari 'postgres' ke 'mysql'
       host: process.env.DB_HOST,
@@ -42,7 +47,11 @@ import { AdsService } from './ads/ads.service';
       entities: [News, NewsNetwork, Category, Focus, Network, Writers], // Pastikan entitas yang digunakan sesuai
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
-
+      extra: {
+        connectionLimit: 20,
+        waitForConnections: true,
+        queueLimit: 0,
+      }
     }),
   ],
 
@@ -50,6 +59,11 @@ import { AdsService } from './ads/ads.service';
   providers: [NewsService, CategoryService, FocusService, NetworkService, AdsService, {
     provide: 'APP_GUARD',
     useClass: ApiKeyGuard,
-  }],
+  },
+    {
+      provide: 'APP_GUARD',
+      useClass: ThrottlerGuard,
+    }
+  ],
 })
 export class AppModule { }
