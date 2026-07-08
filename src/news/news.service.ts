@@ -212,28 +212,35 @@ export class NewsService {
         networkId: number,
         categoryId: number
     ) {
-        const cacheKey = `news_by_cat_net${networkId}_p${page}_l${limit}_cat${categoryId}`;
-        const cachedData = await this.cacheManager.get<any>(cacheKey);
-        if (cachedData) return cachedData;
+        // 1. CACHE KHUSUS UNTUK DATA PER HALAMAN
+        const dataCacheKey = `news_data_net${networkId}_p${page}_l${limit}_cat${categoryId}`;
+        const cachedResponse = await this.cacheManager.get<any>(dataCacheKey);
+        if (cachedResponse) return cachedResponse; // Jika data halaman ini ada di cache, langsung return!
+
+        // 2. CACHE KHUSUS UNTUK TOTAL COUNT (Tidak peduli halaman berapa)
+        const countCacheKey = `news_count_net${networkId}_cat${categoryId}`;
+        let total = await this.cacheManager.get<number>(countCacheKey);
+
+        // Jika total count belum di-cache, baru kita tembak database
+        if (total === undefined || total === null) {
+            const countResult = await this.repo.query(`
+            SELECT COUNT(*) as total 
+            FROM news_network nn
+            INNER JOIN news n ON n.id = nn.news_id
+            WHERE nn.net_id = ? AND n.cat_id = ? AND n.status = 1
+        `, [networkId, categoryId]);
+
+            total = parseInt(countResult[0].total);
+
+            // Simpan total ke cache (misal diset lebih lama, 5-10 menit karena total artikel jarang berubah drastis)
+            await this.cacheManager.set(countCacheKey, total, 300000);
+        }
 
         const offset = (page - 1) * limit;
-
-        // 1. COUNT yang lebih ringan. 
-        // Gunakan JOIN yang lebih simpel atau pastikan index ada pada (net_id, news_id)
-        const countResult = await this.repo.query(`
-        SELECT COUNT(*) as total 
-        FROM news_network nn
-        INNER JOIN news n ON n.id = nn.news_id
-        WHERE nn.net_id = ? AND n.cat_id = ? AND n.status = 1
-    `, [networkId, categoryId]);
-
-        const total = parseInt(countResult[0].total);
         let result = [];
 
         if (total > 0) {
-            // 2. Gunakan "Late Row Lookups"
-            // Kita ambil ID-nya dulu yang terfilter, baru JOIN ke tabel master (writers, cat) 
-            // Ini mengurangi beban memori MyISAM saat sorting
+            // Late Row Lookups kamu sudah SANGAT BAGUS di sini!
             result = await this.repo.query(`
             SELECT 
                 n.id, n.is_code, n.image, n.title, n.title_regional, 
@@ -269,7 +276,9 @@ export class NewsService {
             }
         };
 
-        await this.cacheManager.set(cacheKey, finalResponse, 120000);
+        // Simpan hasil final halaman ini ke cache (2 menit)
+        await this.cacheManager.set(dataCacheKey, finalResponse, 120000);
+
         return finalResponse;
     }
 
