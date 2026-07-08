@@ -32,7 +32,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
       max: 5000,
       ttl: 120000, // 2 menit
     }),
-   
+
     TypeOrmModule.forFeature([News, NewsNetwork, Category, Focus, Network, Writers, Ads]),
     TypeOrmModule.forRoot({
       type: 'mysql', // Ganti dari 'postgres' ke 'mysql'
@@ -48,6 +48,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
         connectionLimit: 20,
         waitForConnections: true,
         queueLimit: 0,
+        idleTimeout: 60000,
       }
     }),
   ],
