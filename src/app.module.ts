@@ -45,8 +45,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
       synchronize: false, // ⛔ Jangan ubah struktur DB otomatis
       migrationsRun: false, // ⛔ Jangan jalankan migration otomatis
       extra: {
-        connectionLimit: 20,
-        waitForConnections: true,
+        connectionLimit: 50,
+        waitForConnections: false,
         queueLimit: 0,
       }
     }),
