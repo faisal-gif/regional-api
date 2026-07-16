@@ -68,7 +68,7 @@ export class NewsDetailDto {
     @Transform(({ obj }) => {
         // Kita hasilkan slug kembali dari title untuk dimasukkan ke URL
         const generatedSlug = obj.title
-            ? obj.title_regional.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '')
+            ? obj.title.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '')
             : 'news';
 
         // Format URL: /news/kategori/is_code/judul-slug
